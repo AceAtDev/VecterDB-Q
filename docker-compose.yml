@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  vectordb-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vectordb-q-api
+    ports:
+      - "8000:8000"
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - PERSISTENCE_ENABLED=true
+      - PERSISTENCE_PATH=/app/data/vectordb.pkl
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data
+      - ./app:/app/app  # Mount for development hot-reload, tbh, it makes life easy during development
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  data:
+    driver: local
