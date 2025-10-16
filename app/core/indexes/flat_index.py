@@ -23,7 +23,7 @@ class FlatIndex(VectorIndex):
         
         self._rebuild_matrix()
     
-    def search(self, query: np.ndarray, k: int) -> List[Tuple[str, float]]:
+    def search(self, query: np.ndarray, k: int, metric: str = "euclidean") -> List[Tuple[str, float]]:
         if len(self._vectors) == 0:
             return []
         
@@ -32,7 +32,11 @@ class FlatIndex(VectorIndex):
         distances = []
         for id in self._ids:
             vector = self._vectors[id]
-            distance = self.euclidean_distance(query, vector)
+            if metric == "cosine":
+                similarity = self.cosine_similarity(query, vector)
+                distance = 1.0 - similarity
+            else:
+                distance = self.euclidean_distance(query, vector)
             distances.append((id, distance))
         
         distances.sort(key=lambda x: x[1])

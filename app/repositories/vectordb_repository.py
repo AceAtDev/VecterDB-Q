@@ -144,21 +144,13 @@ class VectorDBRepository:
             
             return False
     
-    def search_library(self, library_id: UUID, query_vector: np.ndarray, k: int) -> List[tuple]:
-        """
-        Search for k nearest neighbors in a library.
-        
-        Thread-safe read operation.
-        
-        Returns:
-            List of (chunk_id, distance) tuples
-        """
+    def search_library(self, library_id: UUID, query_vector: np.ndarray, k: int, metric: str = "euclidean") -> List[tuple]:
         with self._lock.read_lock():
             index = self._indexes.get(library_id)
             if not index:
                 return []
             
-            return index.search(query_vector, k)
+            return index.search(query_vector, k, metric)
     
     def _create_index_for_library(self, library: Library) -> None:
         """Create an index for a library based on its index type."""

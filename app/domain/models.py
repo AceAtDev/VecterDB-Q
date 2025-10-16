@@ -112,6 +112,7 @@ class SearchQuery(BaseModel):
     """Schema for search queries."""
     embedding: List[float] = Field(..., min_length=1, description="Query embedding vector")
     k: int = Field(default=10, ge=1, le=100, description="Number of results to return")
+    metric: str = Field(default="euclidean", pattern="^(euclidean|cosine)$", description="Distance metric")
     filters: Optional[Dict[str, Any]] = Field(None, description="Metadata filters")
 
 

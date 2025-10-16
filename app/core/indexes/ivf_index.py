@@ -73,30 +73,26 @@ class IVFIndex(VectorIndex):
                 if id not in self._inverted_lists[cluster_id]:
                     self._inverted_lists[cluster_id].append(id)
     
-    def search(self, query: np.ndarray, k: int) -> List[Tuple[str, float]]:
-        """
-        Search for k nearest neighbors.
-        
-        Time Complexity: O(k*d + m*d) where k is n_probe and m is avg vectors per cluster
-        """
+    def search(self, query: np.ndarray, k: int, metric: str = "euclidean") -> List[Tuple[str, float]]:
         if not self._is_trained or len(self._vectors) == 0:
             return []
         
         k = min(k, len(self._vectors))
         
-        # Find nearest clusters
         nearest_clusters = self._find_nearest_clusters(query, self.n_probe)
         
-        # Search within those clusters
         candidates = []
         for cluster_id in nearest_clusters:
             if cluster_id in self._inverted_lists:
                 for id in self._inverted_lists[cluster_id]:
                     vector = self._vectors[id]
-                    distance = self.euclidean_distance(query, vector)
+                    if metric == "cosine":
+                        similarity = self.cosine_similarity(query, vector)
+                        distance = 1.0 - similarity
+                    else:
+                        distance = self.euclidean_distance(query, vector)
                     candidates.append((id, distance))
         
-        # Sort and return top k
         candidates.sort(key=lambda x: x[1])
         return candidates[:k]
     

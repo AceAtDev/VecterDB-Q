@@ -23,13 +23,14 @@ class VectorIndex(ABC):
         pass
     
     @abstractmethod
-    def search(self, query: np.ndarray, k: int) -> List[Tuple[str, float]]:
+    def search(self, query: np.ndarray, k: int, metric: str = "euclidean") -> List[Tuple[str, float]]:
         """
         Search for k nearest neighbors.
         
         Args:
             query: Query vector of shape (d,)
             k: Number of neighbors to return
+            metric: Distance metric ("euclidean" or "cosine")
             
         Returns:
             List of (id, distance) tuples sorted by distance

@@ -1,207 +1,274 @@
 # VectorDB-Q: Vector Database REST API
 
-A high-performance REST API for indexing and querying documents within a Vector Database, built with Python, FastAPI, and custom indexing algorithms.
+A high-performance REST API for vector similarity search, built with Python, FastAPI, and custom indexing algorithms.
 
-## 📋 Table of Contents
+## 🎉 Phase 1 Complete - MVP is Ready!
 
-- [Overview](#overview)
-- [Features](#features)
-- [Architecture](#architecture)
-- [Technical Choices](#technical-choices)
-- [Installation](#installation)
-- [Usage](#usage)
-- [API Documentation](#api-documentation)
-- [Testing](#testing)
-- [Performance Analysis](#performance-analysis)
+**👉 New to this project? Start here:** [PHASE_1_COMPLETE.md](PHASE_1_COMPLETE.md)
 
-## 🎯 Overview
+**📚 Full documentation index:** [DOCS_INDEX.md](DOCS_INDEX.md)
 
-VectorDB-Q is a containerized REST API that allows users to:
-- Create and manage libraries of documents
-- Index document chunks with vector embeddings
-- Perform k-Nearest Neighbor (kNN) similarity searches
-- Filter results by metadata
+---
 
-## ✨ Features
+## 🚀 Quick Start
 
-- **CRUD Operations**: Full Create, Read, Update, Delete for libraries and chunks
-- **Custom Indexing**: Multiple indexing algorithms implemented from scratch
-  - Flat Index (brute-force)
-  - Inverted File Index (IVF)
-  - HNSW-inspired hierarchical index
-- **Thread-Safe**: Concurrent read/write protection with reader-writer locks
-- **Metadata Filtering**: Advanced query filtering by metadata fields
-- **Persistence**: Optional disk persistence with checkpointing
-- **Docker Ready**: Fully containerized application
+```powershell
+# Build and run with Docker
+docker-compose up --build
+
+# Test it (30 seconds)
+python quick_test.py
+
+# Interactive API docs
+# Open: http://localhost:8000/docs
+```
+
+---
+
+## 🎯 What is VectorDB-Q?
+
+A REST API that allows you to:
+- 📚 Create libraries (collections) of vector data
+- 🧩 Store chunks (text + vector embeddings + metadata)
+- 🔍 Search for similar vectors using k-NN
+- ⚡ Choose between Flat (brute-force) or IVF (optimized) indexes
+- 📐 Use Euclidean or Cosine distance metrics
+
+---
+
+## ✨ Phase 1 Features (MVP)
+
+### Core Functionality
+- ✅ **CRUD Operations**: Full Create, Read, Update, Delete for libraries and chunks
+- ✅ **Two Indexing Algorithms**:
+  - **Flat Index**: Brute-force O(n×d) search (best for < 10k vectors)
+  - **IVF Index**: Clustered search O(k×d) (best for > 10k vectors)
+- ✅ **Two Distance Metrics**:
+  - **Euclidean**: Straight-line distance
+  - **Cosine**: Directional similarity (best for text embeddings)
+- ✅ **Thread-Safe**: Concurrent operations with RWLock
+- ✅ **Docker Ready**: One-command deployment
+
+### What's NOT in Phase 1 (Coming in Phase 2)
+- ❌ Disk persistence (in-memory only)
+- ❌ Advanced metadata filtering
+- ❌ Batch operations
+- ❌ Authentication
+
+---
 
 ## 🏗️ Architecture
 
-The project follows **Domain-Driven Design (DDD)** principles with clear separation of concerns:
+Clean **Domain-Driven Design** with 4 layers:
 
 ```
-app/
-├── domain/           # Domain models (Pydantic schemas)
-├── repositories/     # Data access layer
-├── services/         # Business logic layer
-├── api/             # FastAPI routes/controllers
-├── core/            # Core components (config, indexing)
-│   ├── indexes/     # Custom indexing algorithms
-│   └── locks/       # Concurrency control
-└── main.py          # Application entry point
+┌─────────────────────────────────────┐
+│  API Layer (FastAPI)                │  ← REST endpoints
+│  • 10 endpoints (CRUD + Search)     │
+└─────────────┬───────────────────────┘
+              │
+┌─────────────▼───────────────────────┐
+│  Service Layer                      │  ← Business logic
+│  • VectorDB operations              │
+└─────────────┬───────────────────────┘
+              │
+┌─────────────▼───────────────────────┐
+│  Repository Layer                   │  ← Data access
+│  • Thread-safe storage (RWLock)     │
+└─────────────┬───────────────────────┘
+              │
+┌─────────────▼───────────────────────┐
+│  Index Layer                        │  ← Vector search
+│  • Flat Index / IVF Index           │
+└─────────────────────────────────────┘
 ```
 
-### Layer Responsibilities
+**📖 Details:** See [ARCHITECTURE_EXPLAINED.md](ARCHITECTURE_EXPLAINED.md)
 
-1. **Domain Layer**: Pure data models with validation
-2. **Repository Layer**: Abstracts data storage and retrieval
-3. **Service Layer**: Contains business logic and orchestration
-4. **API Layer**: HTTP interface, request/response handling
+---
 
-## 🔧 Technical Choices
+## 📚 Documentation
 
-### 1. Indexing Algorithms
+| Document | Description |
+|----------|-------------|
+| **[PHASE_1_COMPLETE.md](PHASE_1_COMPLETE.md)** | ⭐ Beginner guide - what we built |
+| [DOCS_INDEX.md](DOCS_INDEX.md) | 📚 Documentation navigation |
+| [GETTING_STARTED.md](GETTING_STARTED.md) | 🚀 Installation & setup |
+| [TESTING_GUIDE.md](TESTING_GUIDE.md) | 🧪 How to test the API |
+| [API_REFERENCE.md](API_REFERENCE.md) | 🔌 Endpoint reference |
+| [ARCHITECTURE_EXPLAINED.md](ARCHITECTURE_EXPLAINED.md) | 🏗️ Code structure |
+| [VISUAL_GUIDE.md](VISUAL_GUIDE.md) | 🎨 Diagrams |
+| [PHASES.md](PHASES.md) | � Development roadmap |
 
-#### Flat Index
-- **Complexity**: O(n) search, O(1) insert
-- **Use case**: Small datasets, exact results needed
-- **Tradeoff**: Simplest, most accurate, but slowest for large datasets
+---
 
-#### IVF (Inverted File Index)
-- **Complexity**: O(k + m) search (k=probes, m=vectors per cell), O(log n) insert
-- **Use case**: Medium to large datasets, acceptable accuracy loss
-- **Tradeoff**: Faster search with quantization, slight accuracy loss
+## 🧪 Testing
 
-#### HNSW-inspired Index (Optional)
-- **Complexity**: O(log n) search and insert
-- **Use case**: Large datasets, fast approximate search
-- **Tradeoff**: Memory overhead, construction time, best search performance
+### Quick Test (30 seconds)
+```powershell
+python quick_test.py
+```
 
-### 2. Concurrency Control
+### Full Demo (2 minutes)
+```powershell
+python demo_mvp.py
+```
 
-Using **Reader-Writer Locks** to prevent data races:
-- Multiple concurrent reads allowed
-- Exclusive write access
-- No starvation (fair queuing)
+### Interactive (Browser)
+```powershell
+docker-compose up
+# Open: http://localhost:8000/docs
+```
 
-### 3. Persistence Strategy
+**📖 Full guide:** [TESTING_GUIDE.md](TESTING_GUIDE.md)
 
-- **Pickle-based serialization** for simplicity
-- **Checkpoint-based saves** (configurable interval)
-- **Atomic writes** with temp file + rename pattern
-- **Tradeoff**: Simple but not production-grade (would use proper DB in production)
+---
 
-### 4. Technology Stack
+## 📊 Performance
 
-- **FastAPI**: Modern, fast, with automatic OpenAPI docs
-- **Pydantic v2**: Runtime validation and static typing
-- **Python 3.11+**: Latest features, better performance
-- **NumPy**: Vector operations only (no FAISS/Chroma)
+| Index Type | Build Time | Search Time | Memory | Best For |
+|------------|-----------|-------------|--------|----------|
+| **Flat** | Instant | O(n×d) | Low | < 10k vectors |
+| **IVF** | O(n×d) | O(k×d) | Medium | > 10k vectors |
+
+**Where:**
+- `n` = number of vectors
+- `d` = vector dimensions  
+- `k` = clusters searched
+
+---
+
+## 🔧 Technology Stack
+
+- **FastAPI**: Modern async web framework with auto-docs
+- **Pydantic v2**: Data validation and settings
+- **NumPy 2.0+**: Vector operations
+- **Python 3.13**: Latest features
+- **Docker**: Containerized deployment
+
+---
+
+## 💡 Use Cases
+
+### 1. Semantic Search
+Find similar documents based on meaning, not just keywords.
+
+### 2. Recommendation System
+"Users who liked this also liked..." based on vector similarity.
+
+### 3. Duplicate Detection
+Find near-duplicate content in large datasets.
+
+### 4. Image/Audio Similarity
+Works with any embeddings - text, images, audio, etc.
+
+**📖 Detailed examples:** [PHASE_1_COMPLETE.md](PHASE_1_COMPLETE.md)
+
+---
 
 ## 🚀 Installation
 
-### Prerequisites
-
-- Docker and Docker Compose
-- Python 3.11+ (for local development)
-
-### Quick Start with Docker
-
-```bash
-# Clone the repository
-git clone <repository-url>
-cd VecterDB-Q
-
-# Build and run with Docker Compose
+### Docker (Recommended)
+```powershell
 docker-compose up --build
-
-# API will be available at http://localhost:8000
-# Interactive docs at http://localhost:8000/docs
+# API: http://localhost:8000
+# Docs: http://localhost:8000/docs
 ```
 
-### Local Development Setup
-
-```bash
+### Local Development
+```powershell
 # Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# Windows PowerShell:
-.\venv\Scripts\Activate.ps1
-# Windows CMD:
-.\venv\Scripts\activate.bat
-# Linux/Mac:
-source venv/bin/activate
+python -m venv .venv
+.venv\Scripts\Activate.ps1
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Run the application
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Run
+uvicorn app.main:app --reload
 ```
 
-## 📚 Usage
+**📖 Full guide:** [GETTING_STARTED.md](GETTING_STARTED.md)
 
-### Creating a Library
+---
 
-```bash
-curl -X POST "http://localhost:8000/api/v1/libraries" \
-  -H "Content-Type: application/json" \
+## � API Quick Reference
+
+### Create Library
+```powershell
+curl -X POST "http://localhost:8000/api/v1/libraries" `
+  -H "Content-Type: application/json" `
+  -d '{"name": "My Library", "index_type": "flat"}'
+```
+
+### Add Chunk
+```powershell
+curl -X POST "http://localhost:8000/api/v1/libraries/{library_id}/chunks" `
+  -H "Content-Type: application/json" `
   -d '{
-    "name": "My Document Library",
-    "description": "A collection of technical documents",
-    "metadata": {"category": "technical", "language": "en"}
+    "text": "Sample text",
+    "embedding": [0.1, 0.2, 0.3, 0.4, 0.5],
+    "metadata": {"source": "test"}
   }'
 ```
 
-### Adding Chunks
-
-```bash
-curl -X POST "http://localhost:8000/api/v1/libraries/{library_id}/chunks" \
-  -H "Content-Type: application/json" \
+### Search
+```powershell
+curl -X POST "http://localhost:8000/api/v1/libraries/{library_id}/search" `
+  -H "Content-Type: application/json" `
   -d '{
-    "text": "Machine learning is a subset of artificial intelligence.",
-    "embedding": [0.1, 0.2, 0.3, ...],
-    "metadata": {"source": "textbook", "page": 42}
-  }'
-```
-
-### Querying
-
-```bash
-curl -X POST "http://localhost:8000/api/v1/libraries/{library_id}/search" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "embedding": [0.1, 0.2, 0.3, ...],
+    "embedding": [0.1, 0.2, 0.3, 0.4, 0.5],
     "k": 5,
-    "filters": {"source": "textbook"}
+    "metric": "cosine"
   }'
 ```
 
-## 📖 API Documentation
+**📖 Full API reference:** [API_REFERENCE.md](API_REFERENCE.md)  
+**🌐 Interactive docs:** http://localhost:8000/docs
 
-Once the application is running, visit:
+---
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-- **OpenAPI JSON**: http://localhost:8000/openapi.json
+## 🚧 What's Next? (Phase 2 & 3)
 
-### Main Endpoints
+### Phase 2: Enhancements
+- [ ] Disk persistence
+- [ ] Advanced metadata filtering
+- [ ] Batch operations
+- [ ] Performance optimizations
 
-- `POST /api/v1/libraries` - Create library
-- `GET /api/v1/libraries` - List all libraries
-- `GET /api/v1/libraries/{id}` - Get library by ID
-- `PUT /api/v1/libraries/{id}` - Update library
-- `DELETE /api/v1/libraries/{id}` - Delete library
-- `POST /api/v1/libraries/{id}/chunks` - Add chunk to library
-- `GET /api/v1/libraries/{id}/chunks` - List chunks in library
-- `PUT /api/v1/libraries/{id}/chunks/{chunk_id}` - Update chunk
-- `DELETE /api/v1/libraries/{id}/chunks/{chunk_id}` - Delete chunk
-- `POST /api/v1/libraries/{id}/search` - Perform kNN search
+### Phase 3: Polish
+- [ ] Comprehensive documentation
+- [ ] Performance benchmarks
+- [ ] Demo videos
+- [ ] Python SDK (optional)
 
-## 🧪 Testing
+**📖 Full roadmap:** [PHASES.md](PHASES.md)
 
-```bash
-# Run all tests
+---
+
+## 🎓 What You'll Learn
+
+- ✅ REST API design with FastAPI
+- ✅ Vector similarity search algorithms
+- ✅ Clean architecture patterns
+- ✅ Thread-safe concurrent programming
+- ✅ Docker containerization
+- ✅ Domain-Driven Design
+
+---
+
+## 📄 License
+
+MIT License
+
+---
+
+## 🎉 Phase 1 Complete!
+
+MVP is ready to demo! 🚀
+
+**Questions?** Check [DOCS_INDEX.md](DOCS_INDEX.md) for all documentation.
+
 pytest
 
 # Run with coverage

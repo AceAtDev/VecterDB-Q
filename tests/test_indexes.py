@@ -11,7 +11,6 @@ class TestFlatIndex:
         """Test adding vectors and searching."""
         index = FlatIndex()
         
-        # Create test vectors
         vectors = np.array([
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
@@ -19,17 +18,34 @@ class TestFlatIndex:
         ])
         ids = ["vec1", "vec2", "vec3"]
         
-        # Add vectors
         index.add(vectors, ids)
         
         assert len(index) == 3
         
-        # Search for nearest to [1.1, 0.1, 0.0]
         query = np.array([1.1, 0.1, 0.0])
-        results = index.search(query, k=2)
+        results = index.search(query, k=2, metric="euclidean")
         
         assert len(results) == 2
-        assert results[0][0] == "vec1"  # Should be closest
+        assert results[0][0] == "vec1"
+    
+    def test_search_cosine(self):
+        """Test searching with cosine similarity."""
+        index = FlatIndex()
+        
+        vectors = np.array([
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ])
+        ids = ["vec1", "vec2", "vec3"]
+        
+        index.add(vectors, ids)
+        
+        query = np.array([1.1, 0.1, 0.0])
+        results = index.search(query, k=2, metric="cosine")
+        
+        assert len(results) == 2
+        assert results[0][0] == "vec1"
     
     def test_remove(self):
         """Test removing a vector."""

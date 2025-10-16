@@ -123,7 +123,12 @@ class VectorDBService:
             return []
         
         query_vector = np.array(search_query.embedding)
-        results = self.repository.search_library(library_id, query_vector, search_query.k)
+        results = self.repository.search_library(
+            library_id, 
+            query_vector, 
+            search_query.k, 
+            search_query.metric
+        )
         
         search_results = []
         for chunk_id_str, distance in results:
@@ -136,7 +141,10 @@ class VectorDBService:
             if search_query.filters and not self._matches_filters(chunk, search_query.filters):
                 continue
             
-            similarity = 1.0 / (1.0 + distance)
+            if search_query.metric == "cosine":
+                similarity = 1.0 - distance
+            else:
+                similarity = 1.0 / (1.0 + distance)
             
             search_results.append(SearchResult(
                 chunk=chunk,
