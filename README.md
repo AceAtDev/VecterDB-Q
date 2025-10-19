@@ -17,7 +17,7 @@ A production-ready semantic search system with a beautiful web interface, REST A
 
 ### 1. Clone & Configure
 ```powershell
-git clone <your-repo>
+git clone github.com/AceAtDev/VecterDB-Q.git
 cd VecterDB-Q
 cp .env.example .env
 # Edit .env and add your Cohere API key
