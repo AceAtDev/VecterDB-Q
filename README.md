@@ -13,6 +13,24 @@ A production-ready semantic search system with a beautiful web interface, REST A
 
 ---
 
+## 🎥 Video Walkthroughs
+
+### 🚀 Quick Setup Guide
+Watch a complete setup walkthrough from clone to running application:
+
+[![Project Setup](https://img.shields.io/badge/▶️_Watch-Project_Setup-blue?style=for-the-badge&logo=loom)](https://www.loom.com/share/9b112343b0104392b47bd8c1c85b1826?sid=1fca3353-af7a-4d6c-85ff-0ee63d5310f5)
+
+**Covers**: Git clone → Docker setup → First search in under 2 minutes
+
+### 🧠 Technical Dive 
+Architecture, design decisions, and problem-solving walkthrough:
+
+[![Technical Walkthrough](https://img.shields.io/badge/▶️_Watch-Technical_Deep_Dive-red?style=for-the-badge&logo=loom)](https://www.loom.com/share/0094d5bb49234ab0935eb84752424844)
+
+**Covers**: Architecture patterns → Indexing algorithms → Design choices
+
+---
+
 ## 🚀 Quick Start (3 Steps)
 
 ### 1. Clone & Configure
