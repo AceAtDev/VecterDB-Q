@@ -74,11 +74,42 @@ class IVFIndex(VectorIndex):
                     self._inverted_lists[cluster_id].append(id)
     
     def search(self, query: np.ndarray, k: int, metric: str = "euclidean") -> List[Tuple[str, float]]:
-        if not self._is_trained or len(self._vectors) == 0:
+        print(f"[IVF DEBUG] search called: len(_vectors)={len(self._vectors)}, is_trained={self._is_trained}, k={k}")
+        
+        if len(self._vectors) == 0:
+            print("[IVF DEBUG] No vectors, returning empty")
             return []
         
         k = min(k, len(self._vectors))
         
+        # If not trained (few vectors), fall back to brute force search
+        if not self._is_trained:
+            print(f"[IVF DEBUG] Not trained, using brute force on {len(self._vectors)} vectors")
+            try:
+                candidates = []
+                for id, vector in self._vectors.items():
+                    try:
+                        if metric == "cosine":
+                            similarity = self.cosine_similarity(query, vector)
+                            distance = 1.0 - similarity
+                        else:
+                            distance = self.euclidean_distance(query, vector)
+                        candidates.append((id, float(distance)))
+                        print(f"[IVF DEBUG] Added candidate: id={id[:8]}, distance={distance}")
+                    except Exception as e:
+                        print(f"[IVF ERROR] Failed to calculate distance for {id[:8]}: {e}")
+                        continue
+                
+                candidates.sort(key=lambda x: x[1])
+                print(f"[IVF DEBUG] Returning {len(candidates[:k])} results")
+                return candidates[:k]
+            except Exception as e:
+                print(f"[IVF ERROR] Brute force search failed: {e}")
+                import traceback
+                traceback.print_exc()
+                raise
+        
+        # Trained: use cluster-based search
         nearest_clusters = self._find_nearest_clusters(query, self.n_probe)
         
         candidates = []

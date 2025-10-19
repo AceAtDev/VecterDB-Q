@@ -55,10 +55,8 @@ class VectorDBService:
         return self.repository.delete_library(library_id)
     
     def create_chunk(self, library_id: UUID, chunk_create: ChunkCreate) -> Optional[Chunk]:
-        library = self.repository.get_library(library_id)
-        if not library:
-            return None
-        
+        """Create a new chunk and add it to a library."""
+        # Create the chunk object
         chunk = Chunk(
             text=chunk_create.text,
             embedding=chunk_create.embedding,
@@ -66,28 +64,9 @@ class VectorDBService:
             document_id=chunk_create.document_id
         )
         
-        document = None
-        if chunk_create.document_id:
-            for doc in library.documents:
-                if doc.id == chunk_create.document_id:
-                    document = doc
-                    break
-        
-        if not document:
-            document = Document(
-                library_id=library_id,
-                metadata=DocumentMetadata(title="Default Document")
-            )
-            library.documents.append(document)
-            chunk.document_id = document.id
-        
-        document.chunks.append(chunk)
-        document.updated_at = datetime.utcnow()
-        library.updated_at = datetime.utcnow()
-        
-        self.repository.add_chunk_to_library(library_id, chunk)
-        
-        return chunk
+        # Let the repository handle the actual addition (with proper locking)
+        result = self.repository.create_chunk_in_library(library_id, chunk)
+        return result
     
     def get_chunk(self, library_id: UUID, chunk_id: UUID) -> Optional[Chunk]:
         return self.repository.get_chunk(library_id, chunk_id)
@@ -120,7 +99,24 @@ class VectorDBService:
         """Perform k-NN search with optional metadata filtering."""
         library = self.repository.get_library(library_id)
         if not library:
+            print(f"❌ [SEARCH] Library {library_id} not found")
             return []
+        
+        # Log search details
+        total_chunks = sum(len(doc.chunks) for doc in library.documents)
+        print(f"\n🔍 [SEARCH] Library: {library.name} (ID: {library_id})")
+        print(f"   Index type: {library.index_type}")
+        print(f"   Total chunks in library: {total_chunks}")
+        print(f"   Total documents: {len(library.documents)}")
+        print(f"   Search k: {search_query.k}, metric: {search_query.metric}")
+        
+        # Debug: print first few chunk IDs from library
+        if total_chunks > 0:
+            chunk_ids = []
+            for doc in library.documents:
+                for chunk in doc.chunks:
+                    chunk_ids.append(str(chunk.id))
+            print(f"   📋 Chunk IDs in library (first 5): {chunk_ids[:5]}")
         
         query_vector = np.array(search_query.embedding)
         results = self.repository.search_library(
@@ -130,15 +126,21 @@ class VectorDBService:
             search_query.metric
         )
         
+        print(f"   📊 Raw results from index: {len(results)} results")
+        if results:
+            print(f"   🎯 Results: {[(r[0][:8], round(r[1], 4)) for r in results[:3]]}")
+        
         search_results = []
         for chunk_id_str, distance in results:
             chunk_id = UUID(chunk_id_str)
             chunk = self.repository.get_chunk(library_id, chunk_id)
             
             if not chunk:
+                print(f"   ⚠️ [SEARCH] Chunk {chunk_id_str[:8]} from index not found in library!")
                 continue
             
             if search_query.filters and not self._matches_filters(chunk, search_query.filters):
+                print(f"   🚫 [SEARCH] Chunk {chunk_id_str[:8]} filtered out by metadata")
                 continue
             
             if search_query.metric == "cosine":
@@ -153,7 +155,9 @@ class VectorDBService:
             ))
         
         search_results.sort(key=lambda x: x.score, reverse=True)
-        return search_results[:search_query.k]
+        final_results = search_results[:search_query.k]
+        print(f"   ✅ [SEARCH] Returning {len(final_results)} results after filtering")
+        return final_results
     
     @staticmethod
     def _matches_filters(chunk: Chunk, filters: Dict[str, Any]) -> bool:

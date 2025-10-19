@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VectorDB-Q - Vector Database Admin</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; height: 100vh; display: flex; overflow: hidden; }
+        .sidebar { width: 280px; background: #1e2139; color: white; display: flex; flex-direction: column; box-shadow: 2px 0 10px rgba(0,0,0,0.1); flex-shrink: 0; height: 100vh; overflow-y: auto; }
+        .logo { padding: 30px 25px; border-bottom: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
+        .logo h1 { font-size: 1.5em; display: flex; align-items: center; gap: 10px; }
+        .logo-icon { width: 32px; height: 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2em; }
+        .menu { flex: 1; padding: 20px 0; overflow-y: auto; min-height: 0; }
+        .menu-section { margin-bottom: 30px; }
+        .menu-title { padding: 0 25px; font-size: 0.75em; text-transform: uppercase; letter-spacing: 1px; color: #8b92b3; margin-bottom: 10px; font-weight: 600; }
+        .menu-item { padding: 12px 25px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 12px; color: #b8bed4; border-left: 3px solid transparent; }
+        .menu-item:hover { background: rgba(255,255,255,0.05); color: white; }
+        .menu-item.active { background: rgba(102, 126, 234, 0.15); border-left-color: #667eea; color: white; }
+        .menu-item-icon { font-size: 1.2em; }
+        .stats-mini { padding: 20px 25px; border-top: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; background: #1a1d35; }
+        .stat-mini-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 0.9em; }
+        .stat-mini-label { color: #8b92b3; }
+        .stat-mini-value { color: white; font-weight: 600; }
+        .main-content { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; min-width: 0; }
+        .top-bar { background: white; padding: 20px 40px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .hamburger { display: none; background: none; border: none; cursor: pointer; padding: 8px; margin-right: 15px; }
+        .hamburger span { display: block; width: 25px; height: 3px; background: #1e2139; margin: 5px 0; transition: 0.3s; }
+        .mobile-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999; }
+        .mobile-overlay.active { display: block; }
+        .top-bar-left h2 { font-size: 1.8em; color: #1e2139; margin-bottom: 5px; }
+        .breadcrumb { color: #6b7280; font-size: 0.9em; }
+        .top-bar-right { display: flex; gap: 15px; align-items: center; }
+        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-sm { padding: 6px 12px; font-size: 0.8em; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3); }
+        .btn-secondary { background: white; color: #6b7280; border: 1px solid #e5e7eb; }
+        .btn-secondary:hover { background: #f9fafb; }
+        .content-area { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 40px; min-height: 0; }
+        .page-content { width: 100%; height: auto; min-height: min-content; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; border-radius: 12px; padding: 25px; border: 1px solid #e5e7eb; transition: all 0.2s; }
+        .stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-2px); }
+        .stat-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px; }
+        .stat-label { font-size: 0.9em; color: #6b7280; font-weight: 500; }
+        .stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3em; }
+        .stat-icon-blue { background: rgba(102, 126, 234, 0.1); color: #667eea; }
+        .stat-icon-green { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+        .stat-icon-purple { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
+        .stat-icon-orange { background: rgba(249, 115, 22, 0.1); color: #f97316; }
+        .stat-number { font-size: 2.2em; font-weight: 700; color: #1e2139; }
+        .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        @media (max-width: 1200px) { .content-grid { grid-template-columns: 1fr; } }
+        .card { background: white; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; }
+        .card-header { padding: 25px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+        .card-title { font-size: 1.2em; font-weight: 600; color: #1e2139; display: flex; align-items: center; gap: 10px; }
+        .card-body { padding: 25px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #374151; font-weight: 500; font-size: 0.9em; }
+        input, textarea, select { width: 100%; padding: 12px 15px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 0.95em; transition: all 0.2s; background: white; }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        textarea { resize: vertical; min-height: 100px; font-family: inherit; }
+        .library-list { max-height: 500px; overflow-y: auto; }
+        .library-item { padding: 15px; border-bottom: 1px solid #e5e7eb; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .library-item:last-child { border-bottom: none; }
+        .library-item:hover { background: #f9fafb; }
+        .library-item.active { background: rgba(102, 126, 234, 0.05); border-left: 3px solid #667eea; }
+        .library-info { flex: 1; }
+        .library-name { font-weight: 600; color: #1e2139; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; }
+        .library-meta { font-size: 0.85em; color: #6b7280; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.75em; font-weight: 600; text-transform: uppercase; }
+        .badge-flat { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+        .badge-ivf { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+        .results { margin-top: 20px; }
+        .result-item { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 15px; transition: all 0.2s; }
+        .result-item:hover { border-color: #667eea; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1); }
+        .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .result-rank { font-weight: 600; color: #667eea; }
+        .result-score { color: white; padding: 6px 14px; border-radius: 20px; font-size: 0.85em; font-weight: 600; }
+        .result-text { color: #374151; line-height: 1.6; margin-bottom: 10px; }
+        .result-meta { display: flex; gap: 15px; font-size: 0.85em; color: #6b7280; }
+        .result-meta-item { display: flex; align-items: center; gap: 5px; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #9ca3af; }
+        .empty-state-icon { font-size: 4em; margin-bottom: 15px; opacity: 0.5; }
+        .empty-state-text { font-size: 1.1em; margin-bottom: 5px; }
+        .empty-state-subtext { font-size: 0.9em; }
+        .loading { text-align: center; padding: 40px; }
+        .spinner { width: 50px; height: 50px; border: 4px solid #e5e7eb; border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .alert { padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: start; gap: 12px; }
+        .alert-success { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); color: #15803d; }
+        .alert-error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #b91c1c; }
+        .alert-info { background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: #1e40af; }
+        /* Tablet and smaller desktop */
+        @media (max-width: 1200px) {
+            .sidebar { width: 240px; }
+            .stats-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+            .library-grid { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+        }
+        
+        /* Tablet */
+        @media (max-width: 900px) {
+            .sidebar { width: 200px; }
+            .logo { padding: 20px 15px; }
+            .logo h1 { font-size: 1.2em; }
+            .menu-item { padding: 10px 15px; font-size: 0.9em; }
+            .stats-mini { padding: 15px; }
+            .stat-mini-item { font-size: 0.85em; }
+        }
+        
+        /* Mobile */
+        @media (max-width: 768px) {
+            body { overflow-x: hidden; }
+            .hamburger { display: flex; flex-direction: column; }
+            .sidebar { 
+                position: fixed; 
+                left: -280px; 
+                top: 0; 
+                bottom: 0; 
+                width: 280px; 
+                z-index: 1000; 
+                transition: left 0.3s ease;
+            }
+            .sidebar.mobile-open { left: 0; }
+            .top-bar { padding: 15px 20px; }
+            .content-area { padding: 20px; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .library-grid { grid-template-columns: 1fr; }
+        }
+        
+        /* Small mobile */
+        @media (max-width: 480px) {
+            .top-bar { padding: 12px 15px; }
+            .content-area { padding: 15px; }
+            .page-title { font-size: 1.5em; }
+            .btn { padding: 8px 16px; font-size: 0.9em; }
+            .form-input { font-size: 0.9em; }
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+
+</head>
+<body>
+        <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">
+            <h1>
+                <div class="logo-icon">🔍</div>
+                VectorDB-Q
+            </h1>
+        </div>
+        
+        <div class="menu">
+            <div class="menu-section">
+                <div class="menu-title">Main</div>
+                <div class="menu-item active" data-page="dashboard">
+                    <span class="menu-item-icon">📊</span>
+                    Dashboard
+                </div>
+                <div class="menu-item" data-page="libraries">
+                    <span class="menu-item-icon">📚</span>
+                    Libraries
+                </div>
+                <div class="menu-item" data-page="documents">
+                    <span class="menu-item-icon">📄</span>
+                    Documents
+                </div>
+                <div class="menu-item" data-page="search">
+                    <span class="menu-item-icon">🔍</span>
+                    Search
+                </div>
+            </div>
+        </div>
+        
+        <div class="stats-mini">
+            <div class="stat-mini-item">
+                <span class="stat-mini-label">Libraries</span>
+                <span class="stat-mini-value" id="sidebar-libraries">0</span>
+            </div>
+            <div class="stat-mini-item">
+                <span class="stat-mini-label">Total Chunks</span>
+                <span class="stat-mini-value" id="sidebar-chunks">0</span>
+            </div>
+            <div class="stat-mini-item">
+                <span class="stat-mini-label">Searches</span>
+                <span class="stat-mini-value" id="sidebar-searches">0</span>
+            </div>
+            <div class="stat-mini-item">
+                <span class="stat-mini-label">Avg Response</span>
+                <span class="stat-mini-value" id="sidebar-response">-</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Mobile Overlay -->
+        <div class="mobile-overlay" id="mobileOverlay" onclick="toggleMobileMenu()"></div>
+        
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="top-bar-left" style="display: flex; align-items: center;">
+                <button class="hamburger" id="hamburger" onclick="toggleMobileMenu()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div>
+                    <h2 id="page-title">Dashboard</h2>
+                    <div class="breadcrumb">Home / <span id="breadcrumb-page">Dashboard</span></div>
+                </div>
+            </div>
+            <div class="top-bar-right">
+                <button class="btn btn-secondary" onclick="refreshData()">
+                    🔄 Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Dashboard Page -->
+            <div id="page-dashboard" class="page-content">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div>
+                                <div class="stat-label">Total Libraries</div>
+                                <div class="stat-number" id="stat-libraries">0</div>
+                            </div>
+                            <div class="stat-icon stat-icon-blue">📚</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div>
+                                <div class="stat-label">Total Chunks</div>
+                                <div class="stat-number" id="stat-chunks">0</div>
+                            </div>
+                            <div class="stat-icon stat-icon-green">📄</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div>
+                                <div class="stat-label">Total Searches</div>
+                                <div class="stat-number" id="stat-searches">0</div>
+                            </div>
+                            <div class="stat-icon stat-icon-purple">🔍</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div>
+                                <div class="stat-label">Avg Response Time</div>
+                                <div class="stat-number" id="stat-response">0ms</div>
+                            </div>
+                            <div class="stat-icon stat-icon-orange">⚡</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">👋 Welcome to VectorDB-Q</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <span>ℹ️</span>
+                            <div>
+                                <strong>Quick Start Guide:</strong><br>
+                                1. Create a new library from the Libraries page<br>
+                                2. Add document chunks from the Documents page<br>
+                                3. Search your documents from the Search page<br><br>
+                                <strong>⚠️ Important:</strong> All documents in a library must use the same embedding model (currently using embed-english-light-v3.0, 384 dimensions).<br><br>
+                                <strong>🎯 Understanding Search Scores:</strong><br>
+                                • 🔥 90-100% = Excellent match (very similar meaning)<br>
+                                • ✨ 70-89% = Good match (related concepts)<br>
+                                • ⚡ 50-69% = Fair match (somewhat related)<br>
+                                • 💭 &lt;50% = Weak match (different topics)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Libraries Page -->
+            <div id="page-libraries" class="page-content" style="display: none;">
+                <div class="content-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">➕ Create New Library</div>
+                        </div>
+                        <div class="card-body">
+                            <form id="create-library-form">
+                                <div class="form-group">
+                                    <label>Library Name *</label>
+                                    <input type="text" id="library-name" placeholder="e.g., My Documents" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Index Type *</label>
+                                    <select id="index-type" required>
+                                        <option value="flat">Flat (Exact Search)</option>
+                                        <option value="ivf">IVF (Fast Approximate Search)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Description</label>
+                                    <textarea id="library-description" placeholder="What's this library for?"></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                                    ✨ Create Library
+                                </button>
+                            </form>
+                            
+                            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                                <button onclick="loadSampleData()" class="btn btn-secondary" style="width: 100%;">
+                                    🧪 Load Sample Story Data
+                                </button>
+                                <div style="margin-top: 8px; font-size: 0.85em; color: #64748b; text-align: center;">
+                                    Creates a demo library with a complete story in chunks
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">📚 Your Libraries</div>
+                        </div>
+                        <div class="card-body" style="padding: 0;">
+                            <div class="library-list" id="libraries-list">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">📚</div>
+                                    <div class="empty-state-text">No libraries yet</div>
+                                    <div class="empty-state-subtext">Create your first library to get started</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Documents Page -->
+            <div id="page-documents" class="page-content" style="display: none;">
+                <div class="content-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">➕ Add Document Chunk</div>
+                        </div>
+                        <div class="card-body">
+                            <form id="add-chunk-form">
+                                <div class="form-group">
+                                    <label>Select Library *</label>
+                                    <select id="chunk-library" required>
+                                        <option value="">Choose a library...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Text Content *</label>
+                                    <textarea id="chunk-text" placeholder="Enter your document text here..." required style="min-height: 150px;"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Source</label>
+                                    <input type="text" id="chunk-source" placeholder="e.g., document.pdf">
+                                </div>
+                                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                                    📄 Add Chunk
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">📊 Recent Activity</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                <span>💡</span>
+                                <div>
+                                    <strong>Tip:</strong> Chunks are automatically indexed when you add them. You can immediately search for them!
+                                </div>
+                            </div>
+                            <div id="chunk-activity" style="margin-top: 20px;">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">📄</div>
+                                    <div class="empty-state-text">No chunks added yet</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Page -->
+            <div id="page-search" class="page-content" style="display: none;">
+                <div class="content-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">🔍 Search</div>
+                        </div>
+                        <div class="card-body">
+                            <form id="search-form">
+                                <div class="form-group">
+                                    <label>Library *</label>
+                                    <select id="search-library" required onchange="updateSearchLibraryInfo()">
+                                        <option value="">Choose a library...</option>
+                                    </select>
+                                    <div id="library-info" style="margin-top: 8px; padding: 8px 12px; background: #f8fafc; border-radius: 6px; display: none; font-size: 0.85em; color: #64748b;">
+                                        <span id="lib-index-type" class="badge" style="font-size: 0.75em;"></span>
+                                        <span style="margin-left: 10px;">📦 <span id="lib-chunk-count">0</span> chunks</span>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Query *</label>
+                                    <textarea id="search-query" placeholder="What are you looking for?" required style="min-height: 80px;"></textarea>
+                                    <div style="margin-top: 6px; font-size: 0.8em; color: #94a3b8;">
+                                        💡 Use phrases instead of single words for better results. Example: "API documentation" instead of "doc"
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px; align-items: end;">
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label>Search Method</label>
+                                        <select id="search-metric" style="font-size: 0.9em;">
+                                            <option value="cosine">🎯 Semantic (meaning-based)</option>
+                                            <option value="euclidean">📏 Exact (text-based)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label>Results</label>
+                                        <input type="number" id="search-k" value="5" min="1" max="20">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px;">
+                                    🎯 Search
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">📋 Results</div>
+                            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('search-results').scrollIntoView({behavior: 'smooth'})" style="display: none;" id="scroll-to-results">
+                                ⬇️ View Results
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="search-results">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">🔍</div>
+                                    <div class="empty-state-text">No results yet</div>
+                                    <div class="empty-state-subtext">Enter a query above to search</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+        const COHERE_API_KEY = 'REDACTED_COHERE_KEY';
+        
+        // IMPORTANT: Using embed-english-light-v3.0 (384 dimensions)
+        // All chunks in a library MUST use the same model!
+        // Options: embed-english-light-v3.0 (384-dim) or embed-english-v3.0 (1024-dim)
+        
+        let selectedLibraryId = null;
+        let statsData = { libraries: 0, chunks: 0, searches: 0, avgResponseTime: 0 };
+        let librariesCache = []; // Cache for library details
+
+        // Mobile Menu Toggle
+        function toggleMobileMenu() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            sidebar.classList.toggle('mobile-open');
+            overlay.classList.toggle('active');
+        }
+
+        // Navigation
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const page = item.dataset.page;
+                switchPage(page);
+                // Close mobile menu when navigating
+                if (window.innerWidth <= 768) {
+                    toggleMobileMenu();
+                }
+            });
+        });
+
+        function switchPage(page) {
+            document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+            document.querySelector(`[data-page="${page}"]`).classList.add('active');
+            document.querySelectorAll('.page-content').forEach(p => p.style.display = 'none');
+            document.getElementById(`page-${page}`).style.display = 'block';
+            
+            const titles = {
+                dashboard: 'Dashboard',
+                libraries: 'Libraries',
+                documents: 'Documents',
+                search: 'Search'
+            };
+            document.getElementById('page-title').textContent = titles[page];
+            document.getElementById('breadcrumb-page').textContent = titles[page];
+
+            if (page === 'libraries') loadLibraries();
+            if (page === 'documents' || page === 'search') loadLibrariesForDropdown();
+        }
+
+        // Load Libraries
+        async function loadLibraries() {
+            try {
+                const response = await fetch(`${API_BASE}/libraries`);
+                const libraries = await response.json();
+                
+                const listEl = document.getElementById('libraries-list');
+                if (libraries.length === 0) {
+                    listEl.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📚</div>
+                            <div class="empty-state-text">No libraries yet</div>
+                            <div class="empty-state-subtext">Create your first library to get started</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                listEl.innerHTML = libraries.map(lib => {
+                    const totalChunks = lib.total_chunks || lib.documents?.reduce((sum, doc) => sum + (doc.chunks?.length || 0), 0) || 0;
+                    return `
+                    <div class="library-item ${selectedLibraryId === lib.id ? 'active' : ''}" onclick="selectLibrary('${lib.id}')">
+                        <div class="library-info">
+                            <div class="library-name">
+                                ${lib.name}
+                                <span class="badge badge-${lib.index_type}">${lib.index_type.toUpperCase()}</span>
+                            </div>
+                            <div class="library-meta">
+                                ${totalChunks} chunks • ${lib.documents?.length || 0} documents
+                            </div>
+                        </div>
+                    </div>
+                `;
+                }).join('');
+            } catch (error) {
+                console.error('Error loading libraries:', error);
+            }
+        }
+
+        function selectLibrary(id) {
+            selectedLibraryId = id;
+            loadLibraries();
+        }
+
+        async function loadLibrariesForDropdown() {
+            try {
+                const response = await fetch(`${API_BASE}/libraries`);
+                const libraries = await response.json();
+                librariesCache = libraries; // Store for later use
+                
+                const dropdowns = ['chunk-library', 'search-library'];
+                dropdowns.forEach(id => {
+                    const select = document.getElementById(id);
+                    select.innerHTML = '<option value="">Choose a library...</option>' +
+                        libraries.map(lib => `<option value="${lib.id}" data-index="${lib.index_type}" data-chunks="${lib.documents.reduce((sum, doc) => sum + doc.chunks.length, 0)}">${lib.name}</option>`).join('');
+                });
+            } catch (error) {
+                console.error('Error loading libraries:', error);
+            }
+        }
+
+        // Update library info when selecting library for search
+        function updateSearchLibraryInfo() {
+            const select = document.getElementById('search-library');
+            const infoDiv = document.getElementById('library-info');
+            
+            if (!select.value) {
+                infoDiv.style.display = 'none';
+                return;
+            }
+            
+            const selectedLibrary = librariesCache.find(lib => lib.id === select.value);
+            if (selectedLibrary) {
+                const chunkCount = selectedLibrary.documents.reduce((sum, doc) => sum + doc.chunks.length, 0);
+                const indexBadge = document.getElementById('lib-index-type');
+                
+                indexBadge.textContent = selectedLibrary.index_type.toUpperCase();
+                indexBadge.className = 'badge ' + (selectedLibrary.index_type === 'flat' ? 'badge-blue' : 'badge-green');
+                
+                document.getElementById('lib-chunk-count').textContent = chunkCount;
+                infoDiv.style.display = 'block';
+            }
+        }
+
+        // Create Library
+        document.getElementById('create-library-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.disabled = true;
+            btn.textContent = '⏳ Creating...';
+
+            try {
+                const response = await fetch(`${API_BASE}/libraries`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('library-name').value,
+                        index_type: document.getElementById('index-type').value,
+                        description: document.getElementById('library-description').value
+                    })
+                });
+
+                if (response.ok) {
+                    e.target.reset();
+                    await loadLibraries();
+                    showAlert('success', '✅ Library created successfully!');
+                }
+            } catch (error) {
+                showAlert('error', '❌ Failed to create library');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '✨ Create Library';
+            }
+        });
+
+        // Add Chunk
+        document.getElementById('add-chunk-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.disabled = true;
+            btn.textContent = '⏳ Adding...';
+
+            const libraryId = document.getElementById('chunk-library').value;
+            const text = document.getElementById('chunk-text').value;
+
+            try {
+                // Get embedding from Cohere
+                const embedResponse = await fetch('https://api.cohere.ai/v1/embed', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${COHERE_API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        texts: [text],
+                        model: 'embed-english-light-v3.0',
+                        input_type: 'search_document'
+                    })
+                });
+
+                const embedData = await embedResponse.json();
+                const embedding = embedData.embeddings[0];
+
+                // Add chunk
+                const response = await fetch(`${API_BASE}/libraries/${libraryId}/chunks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: text,
+                        embedding: embedding,
+                        metadata: {
+                            source: document.getElementById('chunk-source').value || 'manual',
+                            tags: [],
+                            custom: {}
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    e.target.reset();
+                    showAlert('success', '✅ Chunk added successfully!');
+                    await refreshData();
+                }
+            } catch (error) {
+                showAlert('error', '❌ Failed to add chunk');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '📄 Add Chunk';
+            }
+        });
+
+        // Search
+        document.getElementById('search-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.disabled = true;
+            btn.textContent = '⏳ Searching...';
+
+            const resultsEl = document.getElementById('search-results');
+            resultsEl.innerHTML = '<div class="loading"><div class="spinner"></div>Searching...</div>';
+
+            const libraryId = document.getElementById('search-library').value;
+            const query = document.getElementById('search-query').value;
+            const k = parseInt(document.getElementById('search-k').value);
+            const metric = document.getElementById('search-metric').value;
+
+            try {
+                const startTime = Date.now();
+
+                // Get query embedding
+                const embedResponse = await fetch('https://api.cohere.ai/v1/embed', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${COHERE_API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        texts: [query],
+                        model: 'embed-english-light-v3.0',
+                        input_type: 'search_query'
+                    })
+                });
+
+                const embedData = await embedResponse.json();
+                const queryEmbedding = embedData.embeddings[0];
+
+                // Search
+                const response = await fetch(`${API_BASE}/libraries/${libraryId}/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        embedding: queryEmbedding,
+                        k: k,
+                        metric: metric
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                    throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const results = await response.json();
+                const responseTime = Date.now() - startTime;
+
+                statsData.searches++;
+                statsData.avgResponseTime = responseTime;
+                updateStats();
+
+                if (results.length === 0) {
+                    resultsEl.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🔍</div>
+                            <div class="empty-state-text">No results found</div>
+                            <div class="empty-state-subtext">Try a different query</div>
+                        </div>
+                    `;
+                } else {
+                    const selectedLibrary = librariesCache.find(lib => lib.id === libraryId);
+                    const libraryName = selectedLibrary ? selectedLibrary.name : 'Unknown';
+                    
+                    resultsEl.innerHTML = `
+                        <div style="margin-bottom: 15px; padding: 10px 15px; background: #f8fafc; border-radius: 6px; font-size: 0.85em; color: #64748b; display: flex; justify-content: space-between; align-items: center;">
+                            <span>📚 <strong>${libraryName}</strong> • ${results.length} result${results.length > 1 ? 's' : ''}</span>
+                            <span style="color: #94a3b8;">${responseTime}ms</span>
+                        </div>
+                    ` + results.map((result, index) => {
+                        return `
+                        <div class="result-item">
+                            <div class="result-header">
+                                <span class="result-rank">#${index + 1}</span>
+                            </div>
+                            <div class="result-text">${result.chunk.text}</div>
+                            <div class="result-meta">
+                                <span class="result-meta-item">📄 ${result.chunk.metadata?.source || 'Unknown'}</span>
+                            </div>
+                        </div>
+                    `;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsEl.innerHTML = `
+                    <div class="alert alert-error">
+                        <span>❌</span>
+                        <div>
+                            <strong>Search failed!</strong><br>
+                            ${error.message || 'Unknown error occurred'}
+                            <br><br>
+                            <em>Tip: IVF indexes work better with more data. Try using Flat index for small datasets.</em>
+                        </div>
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🎯 Search';
+            }
+        });
+
+        // Load Sample Data
+        async function loadSampleData() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '⏳ Loading sample data...';
+
+            // Create a single persistent alert for progress updates
+            const progressAlert = document.createElement('div');
+            progressAlert.className = 'alert alert-info';
+            progressAlert.id = 'sample-data-progress';
+            progressAlert.innerHTML = `<span>⏳</span><div><strong>Loading sample data...</strong><br><span id="progress-text">Preparing...</span></div>`;
+            
+            const contentArea = document.querySelector('.content-area');
+            contentArea.insertBefore(progressAlert, contentArea.firstChild);
+            
+            const updateProgress = (text) => {
+                const progressText = document.getElementById('progress-text');
+                if (progressText) progressText.textContent = text;
+            };
+
+            try {
+                // Sample story: "The Last Engineer"
+                const storyChunks = [
+                    {
+                        text: "Dr. Sarah Chen stood in the abandoned server room, dust motes dancing in the beam of her flashlight. The massive data center had been offline for decades, a relic of the old internet before the Great Consolidation. But somewhere in these silent machines lay the key to understanding what really happened.",
+                        source: "Chapter 1: The Discovery",
+                        tags: ["introduction", "setting", "character"]
+                    },
+                    {
+                        text: "The government claimed the consolidation was necessary for security and efficiency. All personal data, all communications, all knowledge merged into a single unified network they called 'The Nexus.' But Sarah had found anomalies in the historical records - gaps, contradictions, deleted entries that shouldn't exist in an immutable blockchain.",
+                        source: "Chapter 2: The Conspiracy",
+                        tags: ["plot", "conflict", "mystery"]
+                    },
+                    {
+                        text: "Her contact, known only as 'Ghost,' had sent her coordinates to this facility. 'Look for the backup vectors,' the message said. 'They kept copies of everything, even what they tried to erase.' Sarah's expertise in vector databases and semantic search made her the perfect person to decode whatever secrets lay buried here.",
+                        source: "Chapter 3: The Mission",
+                        tags: ["plot", "quest", "technology"]
+                    },
+                    {
+                        text: "As she powered up the old quantum drives, green lights flickered to life. The system was running a primitive but elegant vector search algorithm. Billions of data points, each representing a fragment of the pre-Nexus internet, all searchable by meaning rather than keywords. This was revolutionary technology for its time.",
+                        source: "Chapter 4: The Technology",
+                        tags: ["technology", "discovery", "action"]
+                    },
+                    {
+                        text: "Sarah queried the system: 'What was deleted from the historical record about the Consolidation vote?' The semantic search began comparing her query vector against billions of document embeddings. Within seconds, thousands of results appeared - news articles, emails, videos - all marked as 'EXPUNGED' in the modern databases.",
+                        source: "Chapter 5: The Search",
+                        tags: ["action", "revelation", "technology"]
+                    },
+                    {
+                        text: "The truth was devastating. The Consolidation wasn't voted in democratically. It was a coordinated hack that manipulated the voting systems worldwide. The evidence was all here: communications between government officials, tech CEOs, and intelligence agencies planning the takeover months in advance.",
+                        source: "Chapter 6: The Truth",
+                        tags: ["revelation", "climax", "conspiracy"]
+                    },
+                    {
+                        text: "But accessing the data triggered an alert. Within minutes, Nexus security drones would arrive. Sarah had to extract the evidence and get it to the resistance. She initiated a vector similarity search to find all related documents and began downloading them to her encrypted drive. The progress bar crawled forward: 23%... 47%... 68%...",
+                        source: "Chapter 7: The Escape",
+                        tags: ["action", "suspense", "climax"]
+                    },
+                    {
+                        text: "At 94%, she heard the drones outside. Grabbing her drive, Sarah triggered the facility's self-destruct protocol. The old servers would be destroyed, but the data would live on. As she ran through the corridors, she smiled. The vector database had done its job - semantic search had found the truth that keyword filtering had hidden for decades.",
+                        source: "Chapter 8: The Resolution",
+                        tags: ["conclusion", "action", "victory"]
+                    },
+                    {
+                        text: "Three weeks later, the evidence spread across every underground network. People finally understood how they'd been manipulated. The Nexus's grip began to weaken. Sarah Chen, the last engineer who understood the old ways, had used the very technology they tried to suppress to bring down their empire. Sometimes the best way to fight the future is to remember the past.",
+                        source: "Chapter 9: The Aftermath",
+                        tags: ["conclusion", "resolution", "theme"]
+                    }
+                ];
+
+                // Create library
+                updateProgress('📚 Creating sample library...');
+                const libResponse = await fetch(`${API_BASE}/libraries`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: 'Sample Story: The Last Engineer',
+                        index_type: 'flat',
+                        description: 'A sci-fi short story about vector databases and data preservation'
+                    })
+                });
+
+                if (!libResponse.ok) throw new Error('Failed to create library');
+                const library = await libResponse.json();
+
+                // Add chunks with embeddings
+                updateProgress('🧠 Generating embeddings and adding chunks (0/9)...');
+                let addedCount = 0;
+
+                for (const chunk of storyChunks) {
+                    // Get embedding for this chunk
+                    const embedResponse = await fetch('https://api.cohere.ai/v1/embed', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${COHERE_API_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            texts: [chunk.text],
+                            model: 'embed-english-light-v3.0',
+                            input_type: 'search_document'
+                        })
+                    });
+
+                    const embedData = await embedResponse.json();
+                    const embedding = embedData.embeddings[0];
+
+                    // Add chunk to library
+                    const chunkResponse = await fetch(`${API_BASE}/libraries/${library.id}/chunks`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text: chunk.text,
+                            embedding: embedding,
+                            metadata: {
+                                source: chunk.source,
+                                tags: chunk.tags,
+                                custom: {
+                                    story: 'The Last Engineer',
+                                    genre: 'Science Fiction',
+                                    theme: 'Technology and Freedom'
+                                }
+                            }
+                        })
+                    });
+
+                    if (chunkResponse.ok) {
+                        addedCount++;
+                        updateProgress(`✅ Added ${addedCount}/${storyChunks.length} chunks...`);
+                    }
+                }
+
+                await loadLibraries();
+                await refreshData();
+                
+                // Remove progress alert and show success
+                progressAlert.remove();
+                showAlert('success', `🎉 Sample data loaded! Library created with ${addedCount} story chunks. Try searching for: "what happened during the consolidation?" or "vector database technology"`);
+
+            } catch (error) {
+                console.error('Error loading sample data:', error);
+                progressAlert.remove();
+                showAlert('error', '❌ Failed to load sample data: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🧪 Load Sample Story Data';
+            }
+        }
+
+        // Refresh Data
+        async function refreshData() {
+            try {
+                const response = await fetch(`${API_BASE}/libraries`);
+                const libraries = await response.json();
+                
+                statsData.libraries = libraries.length;
+                statsData.chunks = libraries.reduce((sum, lib) => {
+                    return sum + (lib.total_chunks || lib.documents?.reduce((docSum, doc) => docSum + (doc.chunks?.length || 0), 0) || 0);
+                }, 0);
+                
+                updateStats();
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('stat-libraries').textContent = statsData.libraries;
+            document.getElementById('stat-chunks').textContent = statsData.chunks;
+            document.getElementById('stat-searches').textContent = statsData.searches;
+            document.getElementById('stat-response').textContent = statsData.avgResponseTime + 'ms';
+            
+            // Update sidebar stats
+            document.getElementById('sidebar-libraries').textContent = statsData.libraries;
+            document.getElementById('sidebar-chunks').textContent = statsData.chunks;
+            document.getElementById('sidebar-searches').textContent = statsData.searches;
+            document.getElementById('sidebar-response').textContent = statsData.avgResponseTime > 0 
+                ? statsData.avgResponseTime + 'ms' 
+                : '-';
+        }
+
+        function showAlert(type, message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><div>${message}</div>`;
+            
+            const contentArea = document.querySelector('.content-area');
+            contentArea.insertBefore(alertDiv, contentArea.firstChild);
+            
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+
+        // Initialize
+        refreshData();
+    </script>
+</body>
+</html>

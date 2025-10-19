@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY ./app ./app
-COPY .env .env
+COPY ./frontend ./frontend
 
 # Create data directory for persistence
 RUN mkdir -p /app/data

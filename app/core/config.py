@@ -9,9 +9,9 @@ class Settings(BaseSettings):
     api_port: int = Field(default=8000, alias="API_PORT")
     api_reload: bool = Field(default=False, alias="API_RELOAD")
     
-    cohere_api_key: str = Field(alias="COHERE_API_KEY")
+    cohere_api_key: str = Field(default="", alias="COHERE_API_KEY")
     
-    persistence_enabled: bool = Field(default=False, alias="PERSISTENCE_ENABLED")
+    persistence_enabled: bool = Field(default=True, alias="PERSISTENCE_ENABLED")
     persistence_path: str = Field(default="./data/vectordb.pkl", alias="PERSISTENCE_PATH")
     checkpoint_interval: int = Field(default=300, alias="CHECKPOINT_INTERVAL")
     

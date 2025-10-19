@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class ChunkMetadata(BaseModel):
     """Metadata for a chunk."""
-    source: str = Field(..., description="Source of the chunk")
+    source: str = Field(default="unknown", description="Source of the chunk")
     page: Optional[int] = Field(None, description="Page number if applicable")
     section: Optional[str] = Field(None, description="Section name if applicable")
     author: Optional[str] = Field(None, description="Author of the content")
@@ -23,7 +23,7 @@ class Chunk(BaseModel):
     id: UUID = Field(default_factory=uuid4, description="Unique identifier")
     text: str = Field(..., min_length=1, description="The text content of the chunk")
     embedding: List[float] = Field(..., min_length=1, description="Vector embedding")
-    metadata: ChunkMetadata = Field(default_factory=ChunkMetadata, description="Chunk metadata")
+    metadata: ChunkMetadata = Field(default_factory=lambda: ChunkMetadata(source="unknown"), description="Chunk metadata")
     document_id: Optional[UUID] = Field(None, description="Parent document ID")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -33,7 +33,7 @@ class ChunkCreate(BaseModel):
     """Schema for creating a new chunk."""
     text: str = Field(..., min_length=1)
     embedding: List[float] = Field(..., min_length=1)
-    metadata: ChunkMetadata = Field(default_factory=ChunkMetadata)
+    metadata: ChunkMetadata = Field(default_factory=lambda: ChunkMetadata(source="unknown"))
     document_id: Optional[UUID] = None
 
 

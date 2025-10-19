@@ -27,6 +27,13 @@ env/
 .pytest_cache/
 .coverage
 htmlcov/
+tests/
+test_*.py
+*_test.py
+demo*.py
+debug*.py
+verify*.py
+quick_test.py
 
 # Documentation
 *.md
