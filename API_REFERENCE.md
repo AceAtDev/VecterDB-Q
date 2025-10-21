@@ -2,6 +2,8 @@
 
 Complete REST API documentation for VectorDB-Q - Semantic Search Engine.
 
+> **✨ Architecture Note**: The internal backend has been refactored to follow Single Responsibility Principle with separate services for libraries, chunks, and search. The API remains unchanged - all endpoints work exactly as documented below. See [ARCHITECTURE.md](ARCHITECTURE.md) for internal design details.
+
 ## 🌐 Base URLs
 
 ```

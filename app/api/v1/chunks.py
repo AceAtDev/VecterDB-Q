@@ -4,8 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.domain.models import Chunk, ChunkCreate, ChunkUpdate
-from app.services.vectordb_service import VectorDBService
-from app.api.dependencies import get_service
+from app.services.chunk_service import ChunkService
+from app.api.dependencies import get_chunk_service
 
 
 router = APIRouter()
@@ -21,7 +21,7 @@ router = APIRouter()
 def create_chunk(
     library_id: UUID,
     chunk: ChunkCreate,
-    service: VectorDBService = Depends(get_service)
+    service: ChunkService = Depends(get_chunk_service)
 ) -> Chunk:
     """Create a chunk in a library."""
     created_chunk = service.create_chunk(library_id, chunk)
@@ -41,11 +41,11 @@ def create_chunk(
 )
 def list_chunks(
     library_id: UUID,
-    service: VectorDBService = Depends(get_service)
+    service: ChunkService = Depends(get_chunk_service)
 ) -> List[Chunk]:
     """List all chunks in a library."""
     # Verify library exists
-    library = service.get_library(library_id)
+    library = service.library_service.get_library(library_id)
     if not library:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -64,7 +64,7 @@ def list_chunks(
 def get_chunk(
     library_id: UUID,
     chunk_id: UUID,
-    service: VectorDBService = Depends(get_service)
+    service: ChunkService = Depends(get_chunk_service)
 ) -> Chunk:
     """Get a chunk by ID."""
     chunk = service.get_chunk(library_id, chunk_id)
@@ -86,7 +86,7 @@ def update_chunk(
     library_id: UUID,
     chunk_id: UUID,
     chunk_update: ChunkUpdate,
-    service: VectorDBService = Depends(get_service)
+    service: ChunkService = Depends(get_chunk_service)
 ) -> Chunk:
     """Update a chunk."""
     chunk = service.update_chunk(library_id, chunk_id, chunk_update)
@@ -107,7 +107,7 @@ def update_chunk(
 def delete_chunk(
     library_id: UUID,
     chunk_id: UUID,
-    service: VectorDBService = Depends(get_service)
+    service: ChunkService = Depends(get_chunk_service)
 ) -> None:
     """Delete a chunk."""
     success = service.delete_chunk(library_id, chunk_id)

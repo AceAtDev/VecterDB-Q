@@ -4,8 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.domain.models import SearchQuery, SearchResult
-from app.services.vectordb_service import VectorDBService
-from app.api.dependencies import get_service
+from app.services.search_service import SearchService
+from app.api.dependencies import get_search_service
 
 
 router = APIRouter()
@@ -20,7 +20,7 @@ router = APIRouter()
 def search_library(
     library_id: UUID,
     query: SearchQuery,
-    service: VectorDBService = Depends(get_service)
+    service: SearchService = Depends(get_search_service)
 ) -> List[SearchResult]:
     """
     Search for k nearest neighbors in a library.
@@ -31,7 +31,7 @@ def search_library(
     Metadata filters can be applied to narrow down results.
     """
     # Verify library exists
-    library = service.get_library(library_id)
+    library = service.library_service.get_library(library_id)
     if not library:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

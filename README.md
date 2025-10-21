@@ -22,12 +22,15 @@ Watch a complete setup walkthrough from clone to running application:
 
 **Covers**: Git clone → Docker setup → First search in under 2 minutes
 
-### 🧠 Technical Dive 
+### 🧠 Technical Dive (please read the note below about architecture)
 Architecture, design decisions, and problem-solving walkthrough:
 
 [![Technical Walkthrough](https://img.shields.io/badge/▶️_Watch-Technical_Deep_Dive-red?style=for-the-badge&logo=loom)](https://www.loom.com/share/0094d5bb49234ab0935eb84752424844)
 
 **Covers**: Architecture patterns → Indexing algorithms → Design choices
+
+> **Architecture Note**: The internal backend has been refactored to follow Single Responsibility Principle with separate services for libraries, chunks, and search. The API remains unchanged.
+
 
 ---
 
@@ -89,49 +92,64 @@ VectorDB-Q is a **semantic search engine** that understands meaning, not just ke
 
 ## 🏗️ Architecture
 
-**Clean Domain-Driven Design** with separation of concerns:
+**Clean Domain-Driven Design** with proper service separation following SOLID principles:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    Frontend Layer                             │
+│                    Frontend Layer                            │
 │  • Vanilla JavaScript SPA                                    │
 │  • Responsive design (mobile/tablet/desktop)                 │
 │  • Real-time search interface                                │
 └───────────────────────┬──────────────────────────────────────┘
                         │ HTTP/REST API
 ┌───────────────────────▼──────────────────────────────────────┐
-│                    Backend Layer (FastAPI)                    │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
-│  │  Routes  │→ │ Service  │→ │Repository│                   │
-│  │ REST API │  │ Business │  │In-Memory │                   │
-│  └──────────┘  └──────────┘  └────┬─────┘                   │
-│                                    │                          │
-│  ┌─────────────────────────────────▼─────────────────┐       │
-│  │         Index Management Layer                    │       │
-│  │  ┌──────────────┐    ┌──────────────┐            │       │
-│  │  │ Flat Index   │    │  IVF Index   │            │       │
-│  │  │ (Exact)      │    │ (Fast Approx)│            │       │
-│  │  │ O(n) time    │    │ O(log n)     │            │       │
-│  │  └──────────────┘    └──────────────┘            │       │
-│  └───────────────────────────────────────────────────┘       │
+│                    API Routes Layer                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐        │
+│  │  Libraries   │  │   Chunks     │  │   Search     │        │
+│  │   Routes     │  │   Routes     │  │   Routes     │        │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘        │
+│         │                  │                  │              │
+│         ▼                  ▼                  ▼              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐        │
+│  │  Library     │  │   Chunk      │  │   Search     │        │ 
+│  │  Service     │  │   Service    │  │   Service    │        │ 
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘        │
+│         │                  │                  │              │
+│         ▼                  ▼                  ▼              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐        │ 
+│  │  Library     │  │   Chunk      │  │   Index      │        │
+│  │  Repository  │  │   Repository │  │   Repository │        │
+│  └──────────────┘  └──────────────┘  └──────────────┘        │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │         Index Management Layer                          │ │
+│  │  ┌──────────────┐    ┌──────────────┐                   │ │
+│  │  │ Flat Index   │    │  IVF Index   │                   │ │
+│  │  │ (Exact)      │    │ (Fast Approx)│                   │ │
+│  │  │ O(n) time    │    │ O(log n)     │                   │ │
+│  │  └──────────────┘    └──────────────┘                   │ │
+│  └─────────────────────────────────────────────────────────┘ │
 └───────────────────────┬──────────────────────────────────────┘
                         │
 ┌───────────────────────▼──────────────────────────────────────┐
-│                     Data Layer                                │
-│  ┌─────────────────┐        ┌──────────────────────┐        │
-│  │ Vector Storage  │        │   Cohere API         │        │
-│  │ • In-Memory     │        │   (External)         │        │
-│  │ • Pickle Persist│        │   Text → 384D Vector │        │
-│  │ • NumPy Arrays  │        └──────────────────────┘        │
+│                     Data Layer                               │
+│  ┌─────────────────┐        ┌──────────────────────┐         │
+│  │ Vector Storage  │        │   Cohere API         │         │
+│  │ • In-Memory     │        │   (External)         │         │
+│  │ • Pickle Persist│        │   Text → 384D Vector │         │
+│  │ • NumPy Arrays  │        └──────────────────────┘         │
 │  └─────────────────┘                                         │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 **Why This Design?**
-- **Separation of Concerns**: Each layer has one responsibility
-- **Testability**: Can test business logic independently
-- **Scalability**: Can scale layers independently
-- **Maintainability**: Clear boundaries, easy to understand
+- **Single Responsibility**: Each service handles one domain (libraries, chunks, or search)
+- **Separation of Concerns**: Clear boundaries between routes, services, and repositories
+- **Testability**: Services can be tested independently with mocked dependencies
+- **Maintainability**: Easy to find and update specific functionality
+- **SOLID Principles**: Follows industry best practices for enterprise applications
+
+> 📚 **See [ARCHITECTURE.md](ARCHITECTURE.md)** for detailed service design and dependency injection patterns
 
 ---
 

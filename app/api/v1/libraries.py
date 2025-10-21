@@ -4,8 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.domain.models import Library, LibraryCreate, LibraryUpdate
-from app.services.vectordb_service import VectorDBService
-from app.api.dependencies import get_service
+from app.services.library_service import LibraryService
+from app.api.dependencies import get_library_service
 
 
 router = APIRouter()
@@ -14,7 +14,7 @@ router = APIRouter()
 @router.post("", response_model=Library, status_code=status.HTTP_201_CREATED)
 def create_library(
     library: LibraryCreate,
-    service: VectorDBService = Depends(get_service)
+    service: LibraryService = Depends(get_library_service)
 ) -> Library:
     try:
         return service.create_library(library)
@@ -28,14 +28,14 @@ def create_library(
 
 
 @router.get("", response_model=List[Library])
-def list_libraries(service: VectorDBService = Depends(get_service)) -> List[Library]:
+def list_libraries(service: LibraryService = Depends(get_library_service)) -> List[Library]:
     return service.list_libraries()
 
 
 @router.get("/{library_id}", response_model=Library)
 def get_library(
     library_id: UUID,
-    service: VectorDBService = Depends(get_service)
+    service: LibraryService = Depends(get_library_service)
 ) -> Library:
     library = service.get_library(library_id)
     if not library:
@@ -50,7 +50,7 @@ def get_library(
 def update_library(
     library_id: UUID,
     library_update: LibraryUpdate,
-    service: VectorDBService = Depends(get_service)
+    service: LibraryService = Depends(get_library_service)
 ) -> Library:
     library = service.update_library(library_id, library_update)
     if not library:
@@ -64,7 +64,7 @@ def update_library(
 @router.delete("/{library_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_library(
     library_id: UUID,
-    service: VectorDBService = Depends(get_service)
+    service: LibraryService = Depends(get_library_service)
 ) -> None:
     success = service.delete_library(library_id)
     if not success:
