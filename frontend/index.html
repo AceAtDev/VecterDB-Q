@@ -467,7 +467,9 @@
 
     <script>
         const API_BASE = 'http://localhost:8000/api/v1';
-        const COHERE_API_KEY = 'REDACTED_COHERE_KEY';
+        // Supply your own Cohere API key: set window.COHERE_API_KEY (e.g. in a local, uncommitted
+        // config.js loaded before this script) or replace the placeholder below. Never commit real keys.
+        const COHERE_API_KEY = window.COHERE_API_KEY || 'YOUR_COHERE_API_KEY';
         
         // IMPORTANT: Using embed-english-light-v3.0 (384 dimensions)
         // All chunks in a library MUST use the same model!

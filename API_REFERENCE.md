@@ -427,8 +427,8 @@ Content-Type: application/json
 5. Frontend displays results with metadata
 
 **Performance**:
-- **Flat Index**: Exact search, O(n), ~1000ms for 1M chunks
-- **IVF Index**: Approximate search, O(log n), ~50ms for 1M chunks
+- **Flat Index**: Exact search, O(n), ~1,500ms for 1M chunks
+- **IVF Index**: Approximate search, O(log n), ~25ms for 1M chunks
 
 **Filtering Example**:
 ```javascript
@@ -759,11 +759,12 @@ Filters are applied **after** vector search to refine results.
 ## 💻 Python Client Example
 
 ```python
+import os
 import requests
 import cohere
 
 BASE_URL = "http://localhost:8000/api/v1"
-COHERE_KEY = "REDACTED_COHERE_KEY"
+COHERE_KEY = os.environ["COHERE_API_KEY"]  # supply your own Cohere API key
 
 # Initialize Cohere
 co = cohere.Client(COHERE_KEY)
@@ -836,7 +837,7 @@ for result in results:
 ## 🌐 JavaScript/Frontend Example
 
 ```javascript
-const COHERE_API_KEY = "REDACTED_COHERE_KEY";
+const COHERE_API_KEY = "YOUR_COHERE_API_KEY"; // supply your own Cohere API key (never commit real keys)
 const API_BASE = "http://localhost:8000/api/v1";
 
 // Generate embedding via Cohere
