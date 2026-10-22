@@ -5,7 +5,7 @@ A production-ready semantic search system with a beautiful web interface, REST A
 ## ✨ What Makes This Special?
 
 🎯 **Semantic Search** - Find documents by meaning, not just keywords  
-🚀 **Lightning Fast** - 15-70ms search across 100K+ documents  
+🚀 **Fast** - ~30 ms IVF search over 100K vectors, 2-7x faster than exact search depending on data (measured, see [Performance](#-performance-at-scale))  
 🎨 **Beautiful UI** - Responsive admin dashboard with real-time search  
 🐳 **Docker Ready** - One-command deployment  
 ⚡ **Smart Indexing** - Choose between exact (Flat) or fast approximate (IVF) search  
@@ -69,7 +69,7 @@ VectorDB-Q is a **semantic search engine** that understands meaning, not just ke
 | Traditional Keyword Search | VectorDB-Q Semantic Search |
 |---------------------------|---------------------------|
 | "machine learning" only finds those exact words | Finds "AI", "neural networks", "deep learning" |
-| Slow with large datasets (5+ seconds) | Consistently fast (15-70ms) |
+| Slow with large datasets (5+ seconds) | ~4 ms at 10K vectors, ~30 ms at 100K (IVF) |
 | SQL LIKE queries scan everything | Smart indexing searches clusters |
 | Misses context and synonyms | Understands meaning and context |
 
@@ -182,24 +182,29 @@ VectorDB-Q is a **semantic search engine** that understands meaning, not just ke
 
 ## 📊 Performance at Scale
 
-### Real-World Benchmarks
+### Measured Benchmarks
 
-| Dataset Size | Flat Index | IVF Index | Speed Improvement |
-|-------------|------------|-----------|-------------------|
-| 1,000 docs | 5ms | 3ms | 1.7x faster |
-| 10,000 docs | 15ms | 8ms | 1.9x faster |
-| 100,000 docs | 150ms | 15ms | **10x faster** |
-| 1,000,000 docs | 1,500ms | 25ms | **60x faster** |
+Reproduce with `python benchmarks/bench_indexes.py --n 100000 --data random` (or `--data clustered`). Synthetic 384-dimension vectors, top-10 search, median of 20 queries, default IVF settings (100 clusters, `n_probe=10`). Measured October 2026 on an AMD Ryzen 7 8845HS, single process.
+
+| Data | Vectors | Flat (exact) | IVF (approximate) | Speedup | IVF build | IVF recall@10 |
+|------|---------|--------------|-------------------|---------|-----------|---------------|
+| Uniform random | 10,000 | 17 ms | 4 ms | ~4.4x | 34 s | not measured |
+| Uniform random | 100,000 | 206 ms | 30 ms | ~6.9x | 380 s | 0.20 |
+| Clustered | 10,000 | 19 ms | 9 ms | ~2x | 12 s | 1.00 |
+
+Speed and recall trade off with the data: on uniform random vectors (worst case for IVF) every cluster is similar in size, so IVF is fast but misses most true neighbours. On clustered vectors, closer to real embeddings, IVF finds every true neighbour but probes larger clusters.
+
+**Not measured at 1M.** k-means training and IVF search are currently pure-Python loops, so build time grows linearly (~1 hour projected at 1M) and IVF search would scan ~100K vectors per query. Vectorizing both with NumPy is the next step before claiming million-scale numbers.
 
 ### Algorithm Comparison
 
 | Feature | Flat Index | IVF Index |
 |---------|------------|-----------|
-| **Build Time** | Instant | O(n·k·i) ~30s for 100K |
-| **Search Time** | O(n) Linear | O(log n) Logarithmic |
+| **Build Time** | Instant | O(n·k·i), 380 s measured for 100K |
+| **Search Time** | O(n·d) | O(k·d + (n_probe/k)·n·d): scans ~10% of vectors by default |
 | **Memory** | O(n·d) | O(n·d + k·d) |
-| **Accuracy** | 100% | 95-98% |
-| **Best For** | <10K docs, exact results | >10K docs, fast search |
+| **Accuracy** | 100% (exact) | Depends on data: 1.00 recall@10 clustered, 0.20 random |
+| **Best For** | Small collections, exact results | Larger, clustered collections |
 
 **Where:**
 - `n` = number of vectors
@@ -306,7 +311,7 @@ curl -X POST "http://localhost:8000/api/v1/libraries/{library_id}/search" `
 
 ## 🏆 Technical Highlights
 
-- **Smart Indexing**: Flat (exact) or IVF (60x faster)
+- **Smart Indexing**: Flat (exact) or IVF (2-7x faster in measured benchmarks)
 - **Production-Ready**: 1000+ concurrent searches
 - **Real AI**: Cohere production embeddings
 - **Clean Architecture**: 4-layer DDD design
@@ -329,7 +334,7 @@ This project is fully functional and ready for demonstration. It showcases:
 ✅ **Full-Stack Development** - Frontend + Backend + Infrastructure  
 ✅ **Modern Tech Stack** - FastAPI, Docker, Cohere AI  
 ✅ **Clean Code** - Architecture, documentation, testing  
-✅ **Performance** - 60x faster search with IVF algorithm  
+✅ **Performance** - 2-7x faster search with IVF, with a reproducible benchmark script  
 ✅ **UX Polish** - Responsive design, sample data, real-time search  
 
 **🚀 Deploy Now:**

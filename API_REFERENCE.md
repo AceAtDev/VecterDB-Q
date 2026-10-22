@@ -104,7 +104,7 @@ Content-Type: application/json
 - `description` (optional): Description (string)
 - `index_type` (required): `"flat"` or `"ivf"`
   - **Flat**: Exact search, 100% recall, O(n) time, best for <10K docs
-  - **IVF**: Fast approximate, 95-98% recall, O(log n) time, best for >10K docs
+  - **IVF**: Fast approximate, scans ~10% of vectors by default; recall depends on how clustered the data is (1.00 recall@10 on clustered, 0.20 on uniform random in the README benchmark), best for larger collections
 
 **Response** (201 Created):
 ```json
@@ -427,8 +427,8 @@ Content-Type: application/json
 5. Frontend displays results with metadata
 
 **Performance**:
-- **Flat Index**: Exact search, O(n), ~1,500ms for 1M chunks
-- **IVF Index**: Approximate search, O(log n), ~25ms for 1M chunks
+- **Flat Index**: Exact search, O(n), ~206 ms for 100K random vectors (measured)
+- **IVF Index**: Approximate search, scans ~10% of vectors by default, ~30 ms for 100K random vectors (measured). Speed and recall depend on the data; see the README benchmark section.
 
 **Filtering Example**:
 ```javascript
