@@ -97,7 +97,7 @@ class LibraryCreate(BaseModel):
     name: str = Field(..., min_length=1)
     description: Optional[str] = None
     metadata: LibraryMetadata = Field(default_factory=LibraryMetadata)
-    index_type: str = Field(default="flat", pattern="^(flat|ivf|hnsw)$")
+    index_type: str = Field(default="flat", pattern="^(flat|ivf)$")
 
 
 class LibraryUpdate(BaseModel):
@@ -105,7 +105,7 @@ class LibraryUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1)
     description: Optional[str] = None
     metadata: Optional[LibraryMetadata] = None
-    index_type: Optional[str] = Field(None, pattern="^(flat|ivf|hnsw)$")
+    index_type: Optional[str] = Field(None, pattern="^(flat|ivf)$")
 
 
 class SearchQuery(BaseModel):

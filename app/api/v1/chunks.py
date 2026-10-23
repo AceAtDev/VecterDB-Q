@@ -24,7 +24,11 @@ def create_chunk(
     service: ChunkService = Depends(get_chunk_service)
 ) -> Chunk:
     """Create a chunk in a library."""
-    created_chunk = service.create_chunk(library_id, chunk)
+    try:
+        created_chunk = service.create_chunk(library_id, chunk)
+    except ValueError as e:
+        # e.g. embedding dimension does not match the library's index; nothing was stored
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     if not created_chunk:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -89,7 +93,10 @@ def update_chunk(
     service: ChunkService = Depends(get_chunk_service)
 ) -> Chunk:
     """Update a chunk."""
-    chunk = service.update_chunk(library_id, chunk_id, chunk_update)
+    try:
+        chunk = service.update_chunk(library_id, chunk_id, chunk_update)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     if not chunk:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

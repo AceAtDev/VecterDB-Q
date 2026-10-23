@@ -149,12 +149,12 @@ async def debug_indexes():
         
         # Try to get index properties
         try:
-            index_info["index_size"] = len(index) if index else 0
+            index_info["index_size"] = len(index) if index is not None else 0
         except:
             index_info["index_size"] = "ERROR"
         
         try:
-            index_info["index_class"] = type(index).__name__ if index else None
+            index_info["index_class"] = type(index).__name__ if index is not None else None
         except:
             index_info["index_class"] = "ERROR"
             

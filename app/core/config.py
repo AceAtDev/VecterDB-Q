@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     
     persistence_enabled: bool = Field(default=True, alias="PERSISTENCE_ENABLED")
     persistence_path: str = Field(default="./data/vectordb.pkl", alias="PERSISTENCE_PATH")
+    # Not used: indexes are rebuilt from stored chunks on startup, there is no
+    # periodic checkpointing. Kept so existing .env files that set it still load.
     checkpoint_interval: int = Field(default=300, alias="CHECKPOINT_INTERVAL")
     
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")

@@ -34,11 +34,18 @@ class ChunkService:
             
         Returns:
             Created Chunk object if library exists, None otherwise
+            
+        Raises:
+            ValueError: If the embedding dimension does not match the library's index.
+                Nothing is stored in that case.
         """
         # Validate library exists
         library = self.library_service.get_library(library_id)
         if not library:
             return None
+        
+        # Reject a wrong-dimension embedding before anything is stored
+        self.index_repository.validate_vector(library_id, chunk_create.embedding)
         
         # Create the chunk object
         chunk = Chunk(
@@ -53,7 +60,13 @@ class ChunkService:
         
         # Update the vector index with new chunk
         if result:
-            self.index_repository.add_vector(library_id, str(result.id), result.embedding)
+            try:
+                self.index_repository.add_vector(library_id, str(result.id), result.embedding)
+            except ValueError:
+                # A concurrent insert can change the index dimension between the
+                # check above and this add; undo the store so nothing is left behind
+                self.repository.delete_chunk(library_id, result.id)
+                raise
         
         return result
     
@@ -90,18 +103,26 @@ class ChunkService:
             
         Returns:
             Updated Chunk object if found, None otherwise
+            
+        Raises:
+            ValueError: If the new embedding dimension does not match the library's index
         """
-        chunk = self.repository.get_chunk(library_id, chunk_id)
-        if not chunk:
+        existing = self.repository.get_chunk(library_id, chunk_id)
+        if not existing:
             return None
+        
+        if chunk_update.embedding is not None:
+            self.index_repository.validate_vector(library_id, chunk_update.embedding)
+        
+        # Work on a copy: the stored chunk is shared with concurrent readers and
+        # must only change inside the repository's write lock
+        chunk = existing.model_copy(deep=True)
         
         # Update only provided fields
         if chunk_update.text is not None:
             chunk.text = chunk_update.text
         if chunk_update.embedding is not None:
             chunk.embedding = chunk_update.embedding
-            # Update vector index if embedding changed
-            self.index_repository.update_vector(library_id, str(chunk_id), chunk_update.embedding)
         if chunk_update.metadata is not None:
             chunk.metadata = chunk_update.metadata
         if chunk_update.document_id is not None:
@@ -109,7 +130,13 @@ class ChunkService:
         
         chunk.updated_at = datetime.utcnow()
         
-        return self.repository.update_chunk(library_id, chunk_id, chunk)
+        result = self.repository.update_chunk(library_id, chunk_id, chunk)
+        
+        # Update vector index if embedding changed
+        if result and chunk_update.embedding is not None:
+            self.index_repository.update_vector(library_id, str(chunk_id), chunk_update.embedding)
+        
+        return result
     
     def delete_chunk(self, library_id: UUID, chunk_id: UUID) -> bool:
         """Delete a chunk by ID from a library.

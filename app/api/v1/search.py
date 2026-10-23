@@ -41,6 +41,9 @@ def search_library(
     try:
         results = service.search(library_id, query)
         return results
+    except ValueError as e:
+        # e.g. query dimension does not match the library's index
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

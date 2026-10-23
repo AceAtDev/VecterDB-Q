@@ -1,11 +1,16 @@
 """Index repository for managing vector indexes and search operations."""
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, List, Tuple, Set
 from uuid import UUID
+import logging
 import numpy as np
 
 from app.core.locks import RWLock
 from app.core.indexes import VectorIndex, FlatIndex, IVFIndex
 
+
+logger = logging.getLogger(__name__)
+
+SUPPORTED_INDEX_TYPES = ("flat", "ivf")
 
 class IndexRepository:
     """Repository for vector index management and search operations.
@@ -39,7 +44,7 @@ class IndexRepository:
             Created VectorIndex instance
             
         Raises:
-            ValueError: If library already has an index
+            ValueError: If library already has an index or index_type is unknown
         """
         with self._lock.write_lock():
             if library_id in self._indexes:
@@ -52,9 +57,10 @@ class IndexRepository:
                 index = IVFIndex(n_clusters=100, n_probe=10)
                 print(f"[INDEX_REPO] ✅ Created IVFIndex for library {library_id}")
             else:
-                # Default to flat
-                index = FlatIndex()
-                print(f"[INDEX_REPO] ✅ Created FlatIndex (default) for library {library_id}")
+                raise ValueError(
+                    f"Unsupported index_type '{index_type}'. "
+                    f"Supported types: {', '.join(SUPPORTED_INDEX_TYPES)}"
+                )
             
             self._indexes[library_id] = index
             return index
@@ -88,6 +94,22 @@ class IndexRepository:
             print(f"[INDEX_REPO] 🗑️ Deleted index for library {library_id}")
             return True
     
+    def validate_vector(self, library_id: UUID, embedding: List[float]) -> None:
+        """Check that an embedding fits a library's index without changing anything.
+        
+        Args:
+            library_id: UUID of the library
+            embedding: Vector embedding as list of floats
+            
+        Raises:
+            ValueError: If the embedding dimension does not match the index
+        """
+        with self._lock.read_lock():
+            index = self._indexes.get(library_id)
+            if index is None:
+                return
+            index.check_dimension(np.array(embedding))
+    
     def add_vector(self, library_id: UUID, chunk_id: str, embedding: List[float]) -> None:
         """Add a vector to a library's index.
         
@@ -106,7 +128,7 @@ class IndexRepository:
             
             vector = np.array(embedding)
             index.add(np.array([vector]), [chunk_id])
-            print(f"[INDEX_REPO] ➕ Added vector for chunk {chunk_id[:8]}... to library {library_id}")
+            logger.debug("Added vector for chunk %s to library %s", chunk_id, library_id)
     
     def update_vector(self, library_id: UUID, chunk_id: str, embedding: List[float]) -> None:
         """Update a vector in a library's index.
@@ -151,7 +173,8 @@ class IndexRepository:
         library_id: UUID, 
         query_vector: np.ndarray, 
         k: int, 
-        metric: str = "euclidean"
+        metric: str = "euclidean",
+        allowed_ids: Optional[Set[str]] = None
     ) -> List[Tuple[str, float]]:
         """Perform k-NN search in a library's index.
         
@@ -160,22 +183,23 @@ class IndexRepository:
             query_vector: Query vector as numpy array
             k: Number of nearest neighbors to return
             metric: Distance metric ("euclidean" or "cosine")
+            allowed_ids: Optional set of chunk IDs to restrict the search to
             
         Returns:
             List of (chunk_id, distance) tuples sorted by distance
             
         Raises:
-            ValueError: If index not found for library
+            ValueError: If the query dimension does not match the index
         """
         with self._lock.read_lock():
             index = self._indexes.get(library_id)
             if index is None:
-                print(f"[INDEX_REPO] ❌ No index found for library {library_id}")
+                logger.debug("No index found for library %s", library_id)
                 return []
             
-            print(f"[INDEX_REPO] 🔍 Searching library {library_id}: {type(index).__name__}, {len(index)} vectors")
-            results = index.search(query_vector, k, metric)
-            print(f"[INDEX_REPO] 📊 Found {len(results)} results")
+            index.check_dimension(query_vector)
+            results = index.search(query_vector, k, metric, allowed_ids=allowed_ids)
+            logger.debug("Searched library %s: %d results", library_id, len(results))
             return results
     
     def rebuild_index(self, library_id: UUID, vectors: np.ndarray, chunk_ids: List[str]) -> None:

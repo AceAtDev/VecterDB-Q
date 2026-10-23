@@ -3,6 +3,8 @@ from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
 
+import numpy as np
+
 from app.domain.models import Library, LibraryCreate, LibraryUpdate
 
 
@@ -98,9 +100,12 @@ class LibraryService:
         Returns:
             Updated Library object if found, None otherwise
         """
-        library = self.repository.get_library(library_id)
-        if not library:
+        existing = self.repository.get_library(library_id)
+        if not existing:
             return None
+        
+        # Work on a copy so the stored library only changes inside the repository lock
+        library = existing.model_copy(deep=True)
         
         # Check if index type is changing
         old_index_type = library.index_type
@@ -122,15 +127,31 @@ class LibraryService:
         
         result = self.repository.update_library(library_id, library)
         
-        # Recreate index if type changed
+        # Recreate index if type changed, and refill it with the library's chunks
         if index_type_changed and self.index_repository:
             self.index_repository.delete_index(library_id)
             self.index_repository.create_index(library_id, library.index_type)
+            self._rebuild_index(library_id)
         
+        if result:
+            result = self._hydrate_library(result)
         return result
     
+    def _rebuild_index(self, library_id: UUID) -> None:
+        """Load every stored chunk of a library into its (new) index."""
+        if not self.chunk_repository:
+            return
+        vectors = []
+        chunk_ids = []
+        for document in self.chunk_repository.get_documents_for_library(library_id):
+            for chunk in document.chunks:
+                vectors.append(chunk.embedding)
+                chunk_ids.append(str(chunk.id))
+        if vectors:
+            self.index_repository.rebuild_index(library_id, np.array(vectors), chunk_ids)
+    
     def delete_library(self, library_id: UUID) -> bool:
-        """Delete a library by ID.
+        """Delete a library by ID, along with its index and chunks.
         
         Args:
             library_id: UUID of the library to delete
