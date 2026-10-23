@@ -7,6 +7,7 @@ from pathlib import Path
 
 from app.domain.models import Chunk, Document, DocumentMetadata
 from app.repositories.base_repository import BaseRepository
+from app.repositories.persistence import atomic_pickle_dump
 
 
 class ChunkRepository(BaseRepository[Chunk]):
@@ -204,6 +205,25 @@ class ChunkRepository(BaseRepository[Chunk]):
             self._persist()
             return True
     
+    def delete_library_chunks(self, library_id: UUID) -> int:
+        """Delete every chunk and document belonging to a library.
+        
+        Called when a library is deleted so its chunks are not left orphaned
+        in chunks.pkl.
+        
+        Args:
+            library_id: UUID of the library
+            
+        Returns:
+            Number of chunks deleted
+        """
+        with self._lock.write_lock():
+            removed_chunks = self._chunks.pop(library_id, {})
+            removed_documents = self._documents.pop(library_id, None)
+            if removed_chunks or removed_documents is not None:
+                self._persist()
+            return len(removed_chunks)
+    
     def get_documents_for_library(self, library_id: UUID) -> List[Document]:
         """Get all documents in a library (for index rebuilding).
         
@@ -214,7 +234,8 @@ class ChunkRepository(BaseRepository[Chunk]):
             List of documents in the library
         """
         with self._lock.read_lock():
-            return self._documents.get(library_id, [])
+            # Return a copy of the list so callers can iterate without holding the lock
+            return list(self._documents.get(library_id, []))
     
     def _persist(self) -> None:
         """Persist chunk data to disk."""
@@ -234,17 +255,11 @@ class ChunkRepository(BaseRepository[Chunk]):
             # Save to chunks.pkl inside the directory
             path = base_path / "chunks.pkl"
             
-            # Atomic write pattern
-            temp_path = path.with_suffix('.tmp')
-            
-            with open(temp_path, 'wb') as f:
-                pickle.dump({
-                    'chunks': self._chunks,
-                    'documents': self._documents
-                }, f)
-            
-            # Atomic rename
-            temp_path.replace(path)
+            # Atomic, fsynced write (temp file + fsync + rename + directory fsync)
+            atomic_pickle_dump({
+                'chunks': self._chunks,
+                'documents': self._documents
+            }, path)
             
         except Exception as e:
             print(f"[CHUNK_REPO] ❌ Error persisting chunks: {e}")

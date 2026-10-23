@@ -6,6 +6,7 @@ from pathlib import Path
 
 from app.domain.models import Library
 from app.repositories.base_repository import BaseRepository
+from app.repositories.persistence import atomic_pickle_dump
 
 
 class LibraryRepository(BaseRepository[Library]):
@@ -132,6 +133,13 @@ class LibraryRepository(BaseRepository[Library]):
         """Delete a library (legacy method)."""
         return self.delete(library_id)
     
+    @staticmethod
+    def _strip_documents(library: Library) -> Library:
+        """Return the library without documents (chunk data is owned by ChunkRepository)."""
+        if not library.documents:
+            return library
+        return library.model_copy(update={"documents": []})
+    
     def _persist(self) -> None:
         """Persist library data to disk."""
         if not self._persistence_path:
@@ -150,14 +158,14 @@ class LibraryRepository(BaseRepository[Library]):
             # Save to libraries.pkl inside the directory
             path = base_path / "libraries.pkl"
             
-            # Atomic write pattern
-            temp_path = path.with_suffix('.tmp')
+            # Chunks live in chunks.pkl; store libraries without their documents
+            libraries = {
+                library_id: self._strip_documents(library)
+                for library_id, library in self._libraries.items()
+            }
             
-            with open(temp_path, 'wb') as f:
-                pickle.dump(self._libraries, f)
-            
-            # Atomic rename
-            temp_path.replace(path)
+            # Atomic, fsynced write (temp file + fsync + rename + directory fsync)
+            atomic_pickle_dump(libraries, path)
             
         except Exception as e:
             print(f"[LIBRARY_REPO] ❌ Error persisting libraries: {e}")
@@ -181,7 +189,12 @@ class LibraryRepository(BaseRepository[Library]):
             
             print(f"[LIBRARY_REPO] 📂 Loading libraries from {path}")
             with open(path, 'rb') as f:
-                self._libraries = pickle.load(f)
+                libraries = pickle.load(f)
+            # Older snapshots embedded every chunk in the library; drop that copy
+            self._libraries = {
+                library_id: self._strip_documents(library)
+                for library_id, library in libraries.items()
+            }
             
             print(f"[LIBRARY_REPO] ✅ Loaded {len(self._libraries)} libraries")
             

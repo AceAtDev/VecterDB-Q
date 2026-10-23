@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np, requests
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))  # chunks.pkl holds app.domain models; needed to unpickle it below
 
 def start(port, path):
     env = dict(os.environ, PERSISTENCE_ENABLED="true", PERSISTENCE_PATH=path)
@@ -73,12 +74,18 @@ def main():
     ids = {c["id"] for c in requests.get(f"{base}/api/v1/libraries/{libs['flat']}/chunks").json()}
     lost = [x for x in acked if x not in ids]
     print(f"after mid-write crash restart: flat chunks={len(ids)}, acknowledged-but-lost={len(lost)}, search ok={len(search(base, libs['flat'], Q[0]))==10}")
+    # ivf library was not written since the first restart: a second restart must rebuild the same index
+    again = [search(base, libs["ivf"], q) for q in Q]
+    print(f"ivf after second restart vs first restart: identical top-10 for {sum(b == c for b, c in zip(after['ivf'], again))}/{len(Q)} queries")
     # orphan check: delete library, restart, are chunks still in chunks.pkl?
     requests.delete(f"{base}/api/v1/libraries/{libs['ivf']}")
     import pickle
     with open(os.path.join(a.dir, "vectordb", "chunks.pkl"), "rb") as f: data = pickle.load(f)
     from uuid import UUID
     print("after DELETE library ivf: its chunks still in chunks.pkl =", len(data["chunks"].get(UUID(libs["ivf"]), {})))
+    with open(os.path.join(a.dir, "vectordb", "libraries.pkl"), "rb") as f: libs_data = pickle.load(f)
+    print(f"libraries.pkl: {os.path.getsize(os.path.join(a.dir, 'vectordb', 'libraries.pkl'))/1e3:.1f} KB, "
+          f"chunks embedded in it = {sum(len(d.chunks) for l in libs_data.values() for d in l.documents)}")
     p.terminate(); p.wait()
 
 if __name__ == "__main__":

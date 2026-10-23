@@ -40,6 +40,12 @@ async def startup_event():
     total_chunks = sum(len(chunks) for chunks in chunk_repo._chunks.values())
     print(f"✅ [APP STARTUP] Chunk repository initialized with {total_chunks} chunks")
     
+    # Drop chunks left behind by libraries deleted before delete cascaded to chunks
+    orphaned = [lib_id for lib_id in list(chunk_repo._chunks) if lib_id not in library_repo._libraries]
+    for lib_id in orphaned:
+        removed = chunk_repo.delete_library_chunks(lib_id)
+        print(f"🧹 [APP STARTUP] Removed {removed} orphaned chunks of deleted library {lib_id}")
+    
     # Rebuild indexes for all libraries
     for library_id, library in library_repo._libraries.items():
         try:

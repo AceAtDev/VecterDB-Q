@@ -55,10 +55,13 @@ class LibraryService:
             library: Library object to hydrate
             
         Returns:
-            Library with populated documents field
+            Copy of the library with populated documents field. The stored
+            library is left untouched, so libraries.pkl does not duplicate
+            the chunk data held by the chunk repository.
         """
         if self.chunk_repository:
-            library.documents = self.chunk_repository.get_documents_for_library(library.id)
+            documents = self.chunk_repository.get_documents_for_library(library.id)
+            return library.model_copy(update={"documents": documents})
         return library
     
     def get_library(self, library_id: UUID) -> Optional[Library]:
@@ -140,5 +143,9 @@ class LibraryService:
         # Delete associated index
         if result and self.index_repository:
             self.index_repository.delete_index(library_id)
+        
+        # Delete associated chunks so they are not left orphaned in chunks.pkl
+        if result and self.chunk_repository:
+            self.chunk_repository.delete_library_chunks(library_id)
         
         return result
