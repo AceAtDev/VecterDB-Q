@@ -8,6 +8,7 @@ from app.repositories.index_repository import IndexRepository
 from app.services.library_service import LibraryService
 from app.services.chunk_service import ChunkService
 from app.services.search_service import SearchService
+from app.services.embedding_service import EmbeddingService
 
 
 # ============================================================================
@@ -101,4 +102,18 @@ def get_search_service() -> SearchService:
         library_service=library_service,
         chunk_repository=chunk_repo,
         index_repository=index_repo
+    )
+
+
+@lru_cache()
+def get_embedding_service() -> EmbeddingService:
+    """
+    Get or create the embedding service singleton.
+
+    Singleton so the local model is loaded once and shared across requests.
+    """
+    return EmbeddingService(
+        provider=settings.embedding_provider,
+        cohere_api_key=settings.cohere_api_key,
+        local_model=settings.local_embedding_model
     )

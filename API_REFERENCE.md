@@ -418,6 +418,22 @@ Content-Type: application/json
 
 ---
 
+### Embed Text
+
+**POST** `/api/v1/embed`
+
+Turns text into vectors with the server's embedding provider, so clients do not need an API key. The provider is Cohere `embed-english-light-v3.0` when `COHERE_API_KEY` is set, otherwise the local `all-MiniLM-L6-v2` (set `EMBEDDING_PROVIDER` to `cohere` or `local` to force one). Both return 384 dimensions.
+
+```json
+{"texts": ["how did she escape?"], "input_type": "search_query"}
+```
+
+`texts`: 1 to 96 strings. `input_type`: `search_document` (default) or `search_query`; only Cohere uses it.
+
+**Response 200:** `{"embeddings": [[...384 floats...]], "provider": "local", "model": "sentence-transformers/all-MiniLM-L6-v2", "dimension": 384}`
+
+**Response 503:** no provider is available (for example `local` without `sentence-transformers` installed).
+
 ### Frontend Integration
 
 **Search Page** workflow:

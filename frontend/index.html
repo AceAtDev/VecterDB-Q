@@ -276,7 +276,7 @@
                                 1. Create a new library from the Libraries page<br>
                                 2. Add document chunks from the Documents page<br>
                                 3. Search your documents from the Search page<br><br>
-                                <strong>⚠️ Important:</strong> All documents in a library must use the same embedding model (currently using embed-english-light-v3.0, 384 dimensions).<br><br>
+                                <strong>⚠️ Important:</strong> All documents in a library must use the same embedding model (the server's embedding model: Cohere embed-english-light-v3.0 or local all-MiniLM-L6-v2, both 384 dimensions).<br><br>
                                 <strong>🎯 Understanding Search Scores:</strong><br>
                                 • 🔥 90-100% = Excellent match (very similar meaning)<br>
                                 • ✨ 70-89% = Good match (related concepts)<br>
@@ -466,14 +466,26 @@
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:8000/api/v1';
-        // Supply your own Cohere API key: set window.COHERE_API_KEY (e.g. in a local, uncommitted
-        // config.js loaded before this script) or replace the placeholder below. Never commit real keys.
-        const COHERE_API_KEY = window.COHERE_API_KEY || 'YOUR_COHERE_API_KEY';
-        
-        // IMPORTANT: Using embed-english-light-v3.0 (384 dimensions)
+        // Served by the API itself; fall back to localhost when the file is opened directly
+        const API_BASE = window.location.protocol.startsWith('http')
+            ? `${window.location.origin}/api/v1`
+            : 'http://localhost:8000/api/v1';
+
+        // Embeddings come from the server (POST /api/v1/embed), so no API key lives in the browser.
+        // The server uses Cohere when COHERE_API_KEY is set, otherwise a local MiniLM model (both 384-d).
         // All chunks in a library MUST use the same model!
-        // Options: embed-english-light-v3.0 (384-dim) or embed-english-v3.0 (1024-dim)
+        async function embedText(text, inputType) {
+            const response = await fetch(`${API_BASE}/embed`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ texts: [text], input_type: inputType })
+            });
+            if (!response.ok) {
+                const detail = (await response.json().catch(() => ({}))).detail;
+                throw new Error(detail || `Embedding failed (${response.status})`);
+            }
+            return (await response.json()).embeddings[0];
+        }
         
         let selectedLibraryId = null;
         let statsData = { libraries: 0, chunks: 0, searches: 0, avgResponseTime: 0 };
@@ -644,22 +656,8 @@
             const text = document.getElementById('chunk-text').value;
 
             try {
-                // Get embedding from Cohere
-                const embedResponse = await fetch('https://api.cohere.ai/v1/embed', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${COHERE_API_KEY}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        texts: [text],
-                        model: 'embed-english-light-v3.0',
-                        input_type: 'search_document'
-                    })
-                });
-
-                const embedData = await embedResponse.json();
-                const embedding = embedData.embeddings[0];
+                // Get embedding from the server (Cohere or the local model)
+                const embedding = await embedText(text, 'search_document');
 
                 // Add chunk
                 const response = await fetch(`${API_BASE}/libraries/${libraryId}/chunks`, {
@@ -708,21 +706,7 @@
                 const startTime = Date.now();
 
                 // Get query embedding
-                const embedResponse = await fetch('https://api.cohere.ai/v1/embed', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${COHERE_API_KEY}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        texts: [query],
-                        model: 'embed-english-light-v3.0',
-                        input_type: 'search_query'
-                    })
-                });
-
-                const embedData = await embedResponse.json();
-                const queryEmbedding = embedData.embeddings[0];
+                const queryEmbedding = await embedText(query, 'search_query');
 
                 // Search
                 const response = await fetch(`${API_BASE}/libraries/${libraryId}/search`, {
@@ -888,21 +872,7 @@
 
                 for (const chunk of storyChunks) {
                     // Get embedding for this chunk
-                    const embedResponse = await fetch('https://api.cohere.ai/v1/embed', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${COHERE_API_KEY}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            texts: [chunk.text],
-                            model: 'embed-english-light-v3.0',
-                            input_type: 'search_document'
-                        })
-                    });
-
-                    const embedData = await embedResponse.json();
-                    const embedding = embedData.embeddings[0];
+                    const embedding = await embedText(chunk.text, 'search_document');
 
                     // Add chunk to library
                     const chunkResponse = await fetch(`${API_BASE}/libraries/${library.id}/chunks`, {

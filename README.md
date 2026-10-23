@@ -2,6 +2,10 @@
 
 A semantic search engine with Flat and IVF vector indexes written from scratch, a REST API, and a web interface. Built with Python, FastAPI, and vanilla JavaScript. It is a learning project and a working prototype, not a production database: see [Known Limitations](#-known-limitations).
 
+<a href="https://github.com/AceAtDev/VecterDB-Q/blob/master/demo/vectordb-q-demo.mp4"><img src="https://github.com/AceAtDev/VecterDB-Q/raw/master/demo/vectordb-q-demo.gif" alt="Loading a 9-chapter sample story, then asking 'how did she escape before the drones arrived?' and 'was the election rigged?'; the top results are the escape and the rigged-vote chapters even though they use different words." width="880"></a>
+
+**Search by meaning.** The sample story is loaded and embedded, then two questions that share almost no words with the text find the right chapters: the escape, and the rigged vote. A real run on a laptop with the local embedding model and no API key (`demo/record_demo.py`). Click for the MP4.
+
 ## ✨ What Makes This Special?
 
 🎯 **Semantic Search** - Find documents by meaning, not just keywords  
@@ -9,7 +13,7 @@ A semantic search engine with Flat and IVF vector indexes written from scratch, 
 🎨 **Beautiful UI** - Responsive admin dashboard with real-time search  
 🐳 **Docker Ready** - One-command deployment  
 ⚡ **Smart Indexing** - Choose between exact (Flat) or fast approximate (IVF) search  
-🧠 **AI-Powered** - Cohere embeddings for understanding context
+🧠 **Runs without an API key** - local `all-MiniLM-L6-v2` embeddings by default, or Cohere when a key is set
 
 ---
 
@@ -41,10 +45,19 @@ Architecture, design decisions, and problem-solving walkthrough:
 git clone github.com/AceAtDev/VecterDB-Q.git
 cd VecterDB-Q
 cp .env.example .env
-# Edit .env and add your Cohere API key
+# Optional: add a Cohere API key to .env. Without one, run locally (below) to use the local model.
 ```
 
+**No API key? Run it locally (about a minute):**
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-local.txt   # adds sentence-transformers; downloads MiniLM (~90 MB) on first use
+uvicorn app.main:app
+```
+Then open http://localhost:8000/, go to **Libraries**, and click **Load Sample Story Data**.
+
 ### 2. Deploy with Docker
+The Docker image installs only `requirements.txt`, so set `COHERE_API_KEY` in `.env` when using Docker.
 ```powershell
 docker-compose up -d
 ```
@@ -86,7 +99,7 @@ VectorDB-Q is a **semantic search engine** that understands meaning, not just ke
 
 **Frontend**: Responsive dashboard, real-time search, library management, sample data loader  
 **Backend**: FastAPI with async support, Flat (exact) and IVF (fast) indexing, cosine/euclidean metrics  
-**AI**: Cohere embeddings (384D), semantic understanding, context-aware search
+**AI**: embeddings from `POST /api/v1/embed`: Cohere `embed-english-light-v3.0` or local `all-MiniLM-L6-v2` (both 384D). The browser never holds an API key
 
 ---
 
@@ -134,7 +147,7 @@ VectorDB-Q is a **semantic search engine** that understands meaning, not just ke
 ┌───────────────────────▼──────────────────────────────────────┐
 │                     Data Layer                               │
 │  ┌─────────────────┐        ┌──────────────────────┐         │
-│  │ Vector Storage  │        │   Cohere API         │         │
+│  │ Vector Storage  │        │ Cohere or local model│         │
 │  │ • In-Memory     │        │   (External)         │         │
 │  │ • Pickle Persist│        │   Text → 384D Vector │         │
 │  │ • NumPy Arrays  │        └──────────────────────┘         │
@@ -259,7 +272,7 @@ The reader-writer locks hold up: 1,000 simultaneous requests return no errors, a
 
 **Frontend**: Vanilla JavaScript, Responsive CSS  
 **Backend**: Python 3.11, FastAPI, NumPy 2.0+, Uvicorn  
-**AI**: Cohere API (embed-english-light-v3.0, 384D)  
+**AI**: Cohere API (embed-english-light-v3.0, 384D) or local sentence-transformers (all-MiniLM-L6-v2, 384D)  
 **Infrastructure**: Docker, Docker Compose
 
 ---
@@ -292,11 +305,11 @@ docker run -p 8000:8000 -v ./data:/app/data vectordb-q
 # Setup environment
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements-local.txt   # or requirements.txt if you use Cohere
 
 # Configure
 cp .env.example .env
-# Edit .env and add your Cohere API key
+# Optional: add your Cohere API key; without it the local model is used
 
 # Run
 uvicorn app.main:app --reload
@@ -354,7 +367,7 @@ curl -X POST "http://localhost:8000/api/v1/libraries/{library_id}/search" `
 
 - **Hand-written indexes**: Flat (exact) and IVF with seeded k-means that retrains as the index grows, ~7-8x faster than exact search on real embeddings at 0.91-0.94 recall@10
 - **Thread-safe**: reader-writer locks; load-tested with 1,000 simultaneous requests and 0 errors
-- **Real AI**: Cohere embeddings
+- **Real AI**: Cohere or local MiniLM embeddings, served by the API
 - **Clean Architecture**: 4-layer DDD design
 - **Beautiful UX**: Responsive with sample data
 
@@ -375,6 +388,7 @@ Found by stress-testing the code in October 2026.
 
 **Still open:**
 - **Single process, GIL-bound.** Searches are served one after another (see [Concurrent requests](#concurrent-requests)).
+- **One embedding model per library.** Cohere and the local MiniLM model both produce 384-d vectors but are different models. Switching `EMBEDDING_PROVIDER` for a library that already has chunks raises no error; it just returns poor results. Re-embed the library after switching.
 - **IVF retraining blocks.** Retraining runs while the index write lock is held, so the insert that triggers it, and every search on that library, waits for k-means. At 20K vectors the largest retrain (on 12,800 vectors) takes roughly 40 s.
 - **IVF results can shift after the first restart.** On startup an index is rebuilt in one pass and trained on all its vectors, while an index built one insert at a time was last trained on a prefix. Recall is the same, but individual results can differ from before the restart. Later restarts rebuild the same index.
 - **Persistence rewrites everything.** Every write pickles and fsyncs the whole chunk store, so inserts slow down as data grows (28 inserts/s at 2,000 chunks). A SIGKILL during concurrent writes lost no acknowledged writes; an actual power cut has not been tested.
@@ -395,7 +409,7 @@ MIT License
 A working prototype, built to learn how vector search works under the hood. It showcases:
 
 ✅ **Full-Stack Development** - Frontend + Backend + Infrastructure  
-✅ **Modern Tech Stack** - FastAPI, Docker, Cohere AI  
+✅ **Modern Tech Stack** - FastAPI, Docker, Cohere or local sentence-transformers  
 ✅ **Clean Code** - Architecture, documentation, testing  
 ✅ **Performance** - IVF search ~7-8x faster than exact search on real embeddings, with reproducible benchmark scripts  
 ✅ **UX Polish** - Responsive design, sample data, real-time search  

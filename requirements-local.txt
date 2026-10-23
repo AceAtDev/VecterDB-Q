@@ -1,0 +1,4 @@
+# Optional: local embeddings with no API key (EMBEDDING_PROVIDER=local, or auto with no COHERE_API_KEY).
+# Downloads sentence-transformers/all-MiniLM-L6-v2 (~90 MB) on first use and runs it on CPU.
+-r requirements.txt
+sentence-transformers>=2.7.0

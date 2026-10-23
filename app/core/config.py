@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     api_reload: bool = Field(default=False, alias="API_RELOAD")
     
     cohere_api_key: str = Field(default="", alias="COHERE_API_KEY")
+    # "auto" uses Cohere when COHERE_API_KEY is set, otherwise the local model.
+    # "local" runs sentence-transformers/all-MiniLM-L6-v2 on this machine (384-d, no key).
+    embedding_provider: str = Field(default="auto", alias="EMBEDDING_PROVIDER")
+    local_embedding_model: str = Field(
+        default="sentence-transformers/all-MiniLM-L6-v2", alias="LOCAL_EMBEDDING_MODEL"
+    )
     
     persistence_enabled: bool = Field(default=True, alias="PERSISTENCE_ENABLED")
     persistence_path: str = Field(default="./data/vectordb.pkl", alias="PERSISTENCE_PATH")
