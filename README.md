@@ -1,11 +1,11 @@
 # VectorDB-Q: Semantic Search Engine
 
-A production-ready semantic search system with a beautiful web interface, REST API, and intelligent vector indexing algorithms. Built with Python, FastAPI, and vanilla JavaScript.
+A semantic search engine with Flat and IVF vector indexes written from scratch, a REST API, and a web interface. Built with Python, FastAPI, and vanilla JavaScript. It is a learning project and a working prototype, not a production database: see [Known Limitations](#-known-limitations).
 
 ## ✨ What Makes This Special?
 
 🎯 **Semantic Search** - Find documents by meaning, not just keywords  
-🚀 **Fast** - ~30 ms IVF search over 100K vectors, 2-7x faster than exact search depending on data (measured, see [Performance](#-performance-at-scale))  
+🚀 **Fast** - on 20K real sentence embeddings, IVF search takes 8 ms vs 71 ms for exact search, at 0.92 recall@10 (measured, see [Performance](#-performance-at-scale))  
 🎨 **Beautiful UI** - Responsive admin dashboard with real-time search  
 🐳 **Docker Ready** - One-command deployment  
 ⚡ **Smart Indexing** - Choose between exact (Flat) or fast approximate (IVF) search  
@@ -126,7 +126,7 @@ VectorDB-Q is a **semantic search engine** that understands meaning, not just ke
 │  │  ┌──────────────┐    ┌──────────────┐                   │ │
 │  │  │ Flat Index   │    │  IVF Index   │                   │ │
 │  │  │ (Exact)      │    │ (Fast Approx)│                   │ │
-│  │  │ O(n) time    │    │ O(log n)     │                   │ │
+│  │  │ O(n) time    │    │ ~10% scanned │                   │ │
 │  │  └──────────────┘    └──────────────┘                   │ │
 │  └─────────────────────────────────────────────────────────┘ │
 └───────────────────────┬──────────────────────────────────────┘
@@ -184,7 +184,31 @@ VectorDB-Q is a **semantic search engine** that understands meaning, not just ke
 
 ### Measured Benchmarks
 
-Reproduce with `python benchmarks/bench_indexes.py --n 100000 --data random` (or `--data clustered`). Synthetic 384-dimension vectors, top-10 search, median of 20 queries, default IVF settings (100 clusters, `n_probe=10`). Measured October 2026 on an AMD Ryzen 7 8845HS, single process.
+All numbers below were measured in October 2026 on an AMD Ryzen 7 8845HS (16 threads), Python 3.12, single process.
+
+#### Real embeddings
+
+AG News passages embedded with `all-MiniLM-L6-v2` (384-d, normalized), 50 held-out test passages as queries, cosine metric, top-10, default IVF settings (100 clusters, `n_probe=10`). Recall is measured against exact (Flat) results.
+
+```bash
+pip install datasets sentence-transformers   # only needed for this benchmark
+python benchmarks/embed_agnews.py --n 20000 --out /tmp/agnews_minilm.npz
+python benchmarks/bench_real_embeddings.py --data /tmp/agnews_minilm.npz --sizes 5000 10000 20000
+```
+
+| Vectors | Flat (exact) | IVF (approximate) | Speedup | IVF build | IVF recall@10 |
+|---------|--------------|-------------------|---------|-----------|---------------|
+| 5,000 | 15.5 ms | 2.2 ms | ~7x | 19 s | 0.91 |
+| 10,000 | 31.8 ms | 4.5 ms | ~7x | 42 s | 0.91 |
+| 20,000 | 71.0 ms | 8.1 ms | ~9x | 78 s | 0.92 |
+
+These recall figures are for an index built in bulk, which is what happens when the server starts and rebuilds indexes from stored chunks. A library filled one chunk at a time through `POST /chunks` gets 0.70-0.75 recall@10 until the next restart, because IVF trains k-means once on the first 100 vectors and never retrains (see [Known Limitations](#-known-limitations)).
+
+For scale: a vectorized NumPy brute-force search over the same 20K vectors takes about 1-2 ms. Both indexes here search with plain Python loops, which is where most of their time goes.
+
+#### Synthetic vectors
+
+Reproduce with `python benchmarks/bench_indexes.py --n 100000 --data random` (or `--data clustered`). Synthetic 384-dimension vectors, Euclidean metric, top-10 search, median of 20 queries, default IVF settings.
 
 | Data | Vectors | Flat (exact) | IVF (approximate) | Speedup | IVF build | IVF recall@10 |
 |------|---------|--------------|-------------------|---------|-----------|---------------|
@@ -196,6 +220,20 @@ Speed and recall trade off with the data: on uniform random vectors (worst case 
 
 **Not measured at 1M.** k-means training and IVF search are currently pure-Python loops, so build time grows linearly (~1 hour projected at 1M) and IVF search would scan ~100K vectors per query. Vectorizing both with NumPy is the next step before claiming million-scale numbers.
 
+#### Concurrent requests
+
+Real uvicorn server (1 worker, as in the Dockerfile), persistence off, 1,000 search requests per level sent with `aiohttp`. Reproduce with `python benchmarks/bench_http_concurrency.py --data /tmp/agnews_minilm.npz --n 10000 --index ivf --levels 1 10 100 1000 --requests 1000`.
+
+| Library | Requests in flight | Throughput | p50 latency | Errors |
+|---------|--------------------|------------|-------------|--------|
+| IVF, 10K vectors | 1 | 34.5 req/s | 29 ms | 0 |
+| IVF, 10K vectors | 10 | 26.0 req/s | 0.38 s | 0 |
+| IVF, 10K vectors | 1,000 | 24.3 req/s | 40.6 s | 0 |
+| Flat, 10K vectors | 1 | 16.7 req/s | 60 ms | 0 |
+| Flat, 10K vectors | 1,000 | 7.6 req/s | 130 s | 0 |
+
+The reader-writer locks hold up: 1,000 simultaneous requests return no errors, and a 30-second mixed run (100 search clients plus 8 create/update/delete clients) ended with the index and chunk store in agreement. But search does not run in parallel. Python's GIL serializes the pure-Python search loops, so extra concurrency only adds queueing, and running more uvicorn workers would give each worker its own separate in-memory database.
+
 ### Algorithm Comparison
 
 | Feature | Flat Index | IVF Index |
@@ -203,7 +241,7 @@ Speed and recall trade off with the data: on uniform random vectors (worst case 
 | **Build Time** | Instant | O(n·k·i), 380 s measured for 100K |
 | **Search Time** | O(n·d) | O(k·d + (n_probe/k)·n·d): scans ~10% of vectors by default |
 | **Memory** | O(n·d) | O(n·d + k·d) |
-| **Accuracy** | 100% (exact) | Depends on data: 1.00 recall@10 clustered, 0.20 random |
+| **Accuracy** | 100% (exact) | 0.92 recall@10 on real embeddings (bulk build); 1.00 clustered, 0.20 uniform random |
 | **Best For** | Small collections, exact results | Larger, clustered collections |
 
 **Where:**
@@ -311,15 +349,26 @@ curl -X POST "http://localhost:8000/api/v1/libraries/{library_id}/search" `
 
 ## 🏆 Technical Highlights
 
-- **Smart Indexing**: Flat (exact) or IVF (2-7x faster in measured benchmarks)
-- **Production-Ready**: 1000+ concurrent searches
-- **Real AI**: Cohere production embeddings
+- **Hand-written indexes**: Flat (exact) and IVF with k-means, ~7-9x faster than exact search on real embeddings at 0.91-0.92 recall@10
+- **Thread-safe**: reader-writer locks; load-tested with 1,000 simultaneous requests and 0 errors
+- **Real AI**: Cohere embeddings
 - **Clean Architecture**: 4-layer DDD design
 - **Beautiful UX**: Responsive with sample data
 
 ---
 
+## ⚠️ Known Limitations
 
+Found by stress-testing the code in October 2026. None of these are fixed yet.
+
+- **Single process, GIL-bound.** Searches are served one after another (see [Concurrent requests](#concurrent-requests)).
+- **IVF trains once.** When chunks arrive one at a time, k-means trains on the first 100 vectors and never retrains, so recall drops to 0.70-0.75 until a restart rebuilds the index. k-means is also unseeded, so IVF results can change between restarts.
+- **Persistence rewrites everything.** Every write pickles the whole store to a temp file and renames it into place. This survives a killed process (tested with SIGKILL during concurrent writes, with no acknowledged writes lost) but has no `fsync`, so a power loss can still lose data. Inserts slow down as data grows (22 inserts/s at 2,000 chunks), and `libraries.pkl` duplicates the chunk data.
+- **No index checkpoints.** Indexes are rebuilt from stored chunks on startup. `CHECKPOINT_INTERVAL` in `.env.example` is not used yet.
+- **Validation gaps.** A chunk with the wrong embedding dimension returns 400 but is still stored, and later Flat searches on that library fail. Metadata filters are applied after the top-k is chosen, so filtered searches can return fewer than k results.
+- **Tests cover the service layer only.** The 41 tests mock the repositories. The indexes, locks, persistence, and HTTP layer are exercised by the scripts in `benchmarks/`, not by `pytest`.
+
+---
 
 ## 📄 License
 
@@ -327,14 +376,14 @@ MIT License
 
 ---
 
-## 🎉 Production Ready!
+## 🎉 Project Status
 
-This project is fully functional and ready for demonstration. It showcases:
+A working prototype, built to learn how vector search works under the hood. It showcases:
 
 ✅ **Full-Stack Development** - Frontend + Backend + Infrastructure  
 ✅ **Modern Tech Stack** - FastAPI, Docker, Cohere AI  
 ✅ **Clean Code** - Architecture, documentation, testing  
-✅ **Performance** - 2-7x faster search with IVF, with a reproducible benchmark script  
+✅ **Performance** - IVF search ~7-9x faster than exact search on real embeddings, with reproducible benchmark scripts  
 ✅ **UX Polish** - Responsive design, sample data, real-time search  
 
 **🚀 Deploy Now:**

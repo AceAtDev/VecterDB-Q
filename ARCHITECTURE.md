@@ -202,7 +202,7 @@ def get_search_service() -> SearchService:
 
 **Key Features**:
 - CRUD operations for libraries
-- Atomic file writes (temp file + rename)
+- Whole-store snapshot on every write (temp file + rename, no fsync): survives a killed process, not a power loss
 - Automatic persistence on changes
 
 ### ChunkRepository
@@ -215,7 +215,7 @@ def get_search_service() -> SearchService:
 - CRUD operations for chunks
 - Document management per library
 - Batch operations for efficiency
-- Atomic file writes
+- Whole-store snapshot on every write (temp file + rename, no fsync)
 
 ### IndexRepository
 **Storage**: In-memory dictionary `{library_id: VectorIndex}`  
@@ -321,7 +321,7 @@ def test_create_library_success(library_service, mock_library_repository):
 - **LibraryService**: 13 tests (create, get, list, update, delete + edge cases)
 - **ChunkService**: 13 tests (CRUD + index synchronization)
 - **SearchService**: 15 tests (search, filtering, metrics, edge cases)
-- **Total**: 41 passing tests with 100% service layer coverage
+- **Total**: 41 passing service-layer tests with mocked repositories. Indexes, locks, persistence and the HTTP layer are exercised by the scripts in `benchmarks/`, not by `pytest`.
 
 ---
 
