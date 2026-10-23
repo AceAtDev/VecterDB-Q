@@ -202,7 +202,8 @@ def get_search_service() -> SearchService:
 
 **Key Features**:
 - CRUD operations for libraries
-- Whole-store snapshot on every write (temp file + rename, no fsync): survives a killed process, not a power loss
+- Whole-store snapshot on every write (temp file, fsync, rename, directory fsync)
+- Stores libraries without their documents; chunk data lives only in `chunks.pkl`
 - Automatic persistence on changes
 
 ### ChunkRepository
@@ -215,7 +216,8 @@ def get_search_service() -> SearchService:
 - CRUD operations for chunks
 - Document management per library
 - Batch operations for efficiency
-- Whole-store snapshot on every write (temp file + rename, no fsync)
+- Whole-store snapshot on every write (temp file, fsync, rename, directory fsync)
+- Deleting a library deletes its chunks and documents
 
 ### IndexRepository
 **Storage**: In-memory dictionary `{library_id: VectorIndex}`  
@@ -321,7 +323,15 @@ def test_create_library_success(library_service, mock_library_repository):
 - **LibraryService**: 13 tests (create, get, list, update, delete + edge cases)
 - **ChunkService**: 13 tests (CRUD + index synchronization)
 - **SearchService**: 15 tests (search, filtering, metrics, edge cases)
-- **Total**: 41 passing service-layer tests with mocked repositories. Indexes, locks, persistence and the HTTP layer are exercised by the scripts in `benchmarks/`, not by `pytest`.
+- **Total**: 41 passing service-layer tests with mocked repositories (`tests/services`)
+
+Outside the service layer, with real objects instead of mocks:
+- **Indexes** (`tests/indexes`): 14 tests (IVF retraining and recall vs bulk build, seeded k-means, filtered search, dimension checks)
+- **Persistence** (`tests/repositories`): 5 tests (round trip, no chunk copy in `libraries.pkl`, delete cascade, fsync, failed write keeps the old snapshot)
+- **Reader-writer lock** (`tests/core`): 4 tests
+- **HTTP API** (`tests/api`): 11 tests (wrong-dimension rejection, filter before top-k, `hnsw` rejection, index type change, `/debug/indexes`)
+
+Load and crash behaviour is checked by the scripts in `benchmarks/`, not by `pytest`.
 
 ---
 

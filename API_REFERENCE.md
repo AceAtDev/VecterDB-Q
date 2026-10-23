@@ -190,7 +190,7 @@ Content-Type: application/json
 }
 ```
 
-**Note**: Cannot change `index_type` after creation. Create a new library instead.
+**Note**: `index_type` can be changed (`"flat"` or `"ivf"`). The library's index is recreated and refilled from its stored chunks. `"hnsw"` is not supported and returns 422.
 
 **Response** (200 OK): Updated library object.
 
@@ -242,6 +242,7 @@ Content-Type: application/json
 **Fields**:
 - `text` (required): The actual text content (string)
 - `embedding` (required): Vector representation (array of floats, must match model dimensions)
+  - Must have the same dimension as the chunks already in the library. A mismatch returns 400 and nothing is stored.
   - **Cohere embed-english-light-v3.0**: 384 dimensions
   - **All chunks in a library must use the same embedding model**
 - `metadata` (optional): Custom metadata (object)
@@ -378,7 +379,7 @@ Content-Type: application/json
   - `"euclidean"`: L2 distance (exact magnitude comparison)
   - `"cosine"`: Angular similarity (semantic meaning)
 - `filters` (optional): Metadata-based filtering
-  - Filters are applied **after** vector search
+  - Filters are applied **before** the top `k` is chosen, so up to `k` matching chunks are returned
   - Any metadata field can be used as filter
 
 ---
