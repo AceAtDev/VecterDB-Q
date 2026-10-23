@@ -1,6 +1,6 @@
 """Base index interface."""
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Set
 import numpy as np
 
 
@@ -23,7 +23,13 @@ class VectorIndex(ABC):
         pass
     
     @abstractmethod
-    def search(self, query: np.ndarray, k: int, metric: str = "euclidean") -> List[Tuple[str, float]]:
+    def search(
+        self,
+        query: np.ndarray,
+        k: int,
+        metric: str = "euclidean",
+        allowed_ids: Optional[Set[str]] = None
+    ) -> List[Tuple[str, float]]:
         """
         Search for k nearest neighbors.
         
@@ -31,6 +37,8 @@ class VectorIndex(ABC):
             query: Query vector of shape (d,)
             k: Number of neighbors to return
             metric: Distance metric ("euclidean" or "cosine")
+            allowed_ids: If given, only these IDs are considered (filtering
+                happens before the top-k is chosen)
             
         Returns:
             List of (id, distance) tuples sorted by distance
@@ -73,6 +81,41 @@ class VectorIndex(ABC):
     def __len__(self) -> int:
         """Return the number of vectors in the index."""
         pass
+    
+    @property
+    @abstractmethod
+    def dimension(self) -> Optional[int]:
+        """Return the dimension of stored vectors, or None if the index is empty."""
+        pass
+    
+    def check_dimension(self, vector: np.ndarray) -> None:
+        """
+        Raise ValueError if a vector does not match the index dimension.
+        
+        An empty index accepts any dimension.
+        """
+        vector = np.asarray(vector)
+        if vector.ndim != 1:
+            raise ValueError(f"Expected a 1-D vector, got shape {vector.shape}")
+        expected = self.dimension
+        if expected is not None and vector.shape[0] != expected:
+            raise ValueError(
+                f"Embedding dimension {vector.shape[0]} does not match index dimension {expected}"
+            )
+    
+    def _check_dimensions(self, vectors: np.ndarray) -> None:
+        """Validate a batch of vectors against the index and each other before storing any."""
+        expected = self.dimension
+        for vector in vectors:
+            vector = np.asarray(vector)
+            if vector.ndim != 1:
+                raise ValueError(f"Expected 1-D vectors, got shape {vector.shape}")
+            if expected is None:
+                expected = vector.shape[0]
+            elif vector.shape[0] != expected:
+                raise ValueError(
+                    f"Embedding dimension {vector.shape[0]} does not match index dimension {expected}"
+                )
     
     @staticmethod
     def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:

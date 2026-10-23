@@ -1,5 +1,5 @@
 """Flat (brute-force) vector index implementation."""
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional, Set
 import numpy as np
 from app.core.indexes.base import VectorIndex
 
@@ -10,27 +10,44 @@ class FlatIndex(VectorIndex):
     def __init__(self) -> None:
         self._vectors: Dict[str, np.ndarray] = {}
         self._ids: List[str] = []
-        self._vector_matrix: np.ndarray = np.array([])
+    
+    @property
+    def dimension(self) -> Optional[int]:
+        """Dimension of the stored vectors, or None if the index is empty."""
+        if not self._vectors:
+            return None
+        return int(next(iter(self._vectors.values())).shape[0])
     
     def add(self, vectors: np.ndarray, ids: List[str]) -> None:
         if len(vectors) != len(ids):
             raise ValueError("Number of vectors must match number of IDs")
+        self._check_dimensions(vectors)
         
         for vector, id in zip(vectors, ids):
-            self._vectors[id] = vector
-            if id not in self._ids:
+            # Dict lookup instead of list membership keeps inserts O(1)
+            if id not in self._vectors:
                 self._ids.append(id)
-        
-        self._rebuild_matrix()
+            self._vectors[id] = vector
     
-    def search(self, query: np.ndarray, k: int, metric: str = "euclidean") -> List[Tuple[str, float]]:
+    def search(
+        self,
+        query: np.ndarray,
+        k: int,
+        metric: str = "euclidean",
+        allowed_ids: Optional[Set[str]] = None
+    ) -> List[Tuple[str, float]]:
         if len(self._vectors) == 0:
             return []
         
-        k = min(k, len(self._vectors))
+        ids = self._ids
+        if allowed_ids is not None:
+            # Filter before ranking so a filtered search still returns up to k matches
+            ids = [id for id in self._ids if id in allowed_ids]
+        
+        k = min(k, len(ids))
         
         distances = []
-        for id in self._ids:
+        for id in ids:
             vector = self._vectors[id]
             if metric == "cosine":
                 similarity = self.cosine_similarity(query, vector)
@@ -48,27 +65,19 @@ class FlatIndex(VectorIndex):
         
         del self._vectors[id]
         self._ids.remove(id)
-        self._rebuild_matrix()
         return True
     
     def update(self, id: str, vector: np.ndarray) -> bool:
         if id not in self._vectors:
             return False
-        
+        self.check_dimension(vector)
+
         self._vectors[id] = vector
-        self._rebuild_matrix()
         return True
     
     def clear(self) -> None:
         self._vectors.clear()
         self._ids.clear()
-        self._vector_matrix = np.array([])
     
     def __len__(self) -> int:
         return len(self._vectors)
-    
-    def _rebuild_matrix(self) -> None:
-        if len(self._vectors) > 0:
-            self._vector_matrix = np.array([self._vectors[id] for id in self._ids])
-        else:
-            self._vector_matrix = np.array([])

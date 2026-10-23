@@ -3,7 +3,8 @@
 Usage: python benchmarks/bench_real_embeddings.py --data /tmp/vdbq-data/agnews_minilm.npz --sizes 5000 10000 20000
 Reports build time, median/p90 latency, recall@10 vs Flat for:
   - IVF bulk build (one add() call -> k-means on all vectors; this is what app startup rebuild does)
-  - IVF incremental (one add() per vector, as POST /chunks does -> k-means trains once on first 100 vectors)
+  - IVF incremental (one add() per vector, as POST /chunks does -> k-means trains at 100 vectors and retrains
+    each time the index doubles)
 Also a vectorized NumPy brute-force reference for context.
 """
 import argparse, contextlib, io, sys, time
@@ -71,7 +72,7 @@ def main():
             im2, ip2, approx2 = timed_search(inc, Q, a.k, a.metric)
             sizes2 = [len(v) for v in inc._inverted_lists.values()]
             print(f"n={n} ivf-incremental build {ib2:.1f}s median {im2:.1f}ms p90 {ip2:.1f}ms recall@{a.k} {recall(exact, approx2, a.k):.3f} "
-                  f"(trained on first {inc.n_clusters} vectors only; max list={max(sizes2)}, mean={np.mean(sizes2):.0f})", flush=True)
+                  f"(last trained at {inc._trained_size} vectors; max list={max(sizes2)}, mean={np.mean(sizes2):.0f})", flush=True)
 
 if __name__ == "__main__":
     main()
